@@ -30,6 +30,8 @@ Adafruit_PCD8544 display = Adafruit_PCD8544(7, 6, 5, 4, 3);
 
 /*Определение пинов устройств*/
 #define pinButton  11  //пин кнопки
+#define pinVRX A0 //Джойстик Х
+#define pinVRY A1 //Джойстик Y
 bool button_state = false; //состояние кнопки
 int valButton; // счётчик нажатия кнопки ++ 
 long timeButton = 2000;
@@ -283,7 +285,8 @@ switch (errorcode) {
   } 
 /*Данная функция по работе с меню установки температуры*/
 int menuSet() {
-  
+  pinMode (10,OUTPUT); //подсветка экрана
+  display.clearDisplay();
   display.setTextSize(1);
   display.setCursor(0,0);
   display.println("MENU");
@@ -291,11 +294,17 @@ int menuSet() {
   display.println(setTemp, DEC);
   display.setCursor(0,20);
   display.println(valButtonSub, DEC);
+  //display.setCursor(0,30);
+  //display.println(buttonStateSub);
   display.setCursor(0,30);
-  display.println(buttonStateSub);
+  display.println(analogRead(pinVRX));
+  display.setCursor(0,40);
+  display.println(analogRead(pinVRY));
   display.display();
-  
-if (digitalRead(pinButton)==HIGH ) 
+
+// рабочий кусок кода, но для кнопки
+// Если кнопка нажата инкриментируем   
+if (digitalRead(pinButton)==LOW ) 
 {
   
   // считаем каждую миллисекунду и инкрементируем valButton
@@ -304,8 +313,10 @@ if (digitalRead(pinButton)==HIGH )
   valButtonSub++;
  }
 }
-//данный кусок сработает если кнопка будет в LOW и сбрсит valButton
+
+//Если кнопка отпущена, то сбрасываем valButton
 else { valButtonSub = 0;}
+
 
 //пока кнопка нажата, проверяем значение valButton и если оно совпадает с длительностью timeButton то выполняем действие
 // timeButton это и есть то самое значение задержки удержания кнопки
@@ -320,21 +331,48 @@ if (valButtonSub >= timeButtonSub) {
        button_state = false;
 
      }
- //valButtonSub = 0;
 } 
 
 // Если кнопка отпущена и до этого была нажата равному или более установленному времни, то выполняем действие и сбрасываем состояние
-if (digitalRead(pinButton) == LOW && buttonStateSub == true){
+/*if (digitalRead(pinButton) == HIGH && buttonStateSub == true){
 
 setTemp++;
 display.clearDisplay();
 buttonStateSub = false;
 valButtonSub = 0;
 }
+*/
+  
+  
+//читаем значение джойстика
+// Если стик вправо то ++
+if (analogRead(pinVRY) > 1000) {
 
+setTemp++;
+delay(500);
+
+}
+// Если стик влево то --
+if (analogRead(pinVRY) < 400) {
+setTemp--;
+delay(500);
+
+}
+
+  
   return 0;
 
 }
+
+
+
+
+
+
+
+
+
+
 
 /*Основная функция, запрашивает поток и время, а затем отсылает на дисплей.*/
 int rootSys() {
@@ -416,7 +454,7 @@ void loop ()
 
 /* Кнопка */
 // Если кнопка нажата
-if (digitalRead(pinButton)==HIGH && !button_state) 
+if (digitalRead(pinButton)==LOW && !button_state) 
 {
   
   // считаем каждую миллисекунду и инкрементируем valButton
@@ -440,7 +478,7 @@ if (valButton >= timeButton && !button_state ) {
  //Если кнопка не нажата была, то вертим показания на дисплей rootSys, но если дисплей, то тольк работаем в меню, иначе
  // задержка на работу раз в сек в rootSys тормозит работу кнопок.
   
-    if (button_state && (temp < setTemp)) {
+    if (button_state /*&& (temp < setTemp)*/) {
        menuSet();
     } else {
       rootSys();
