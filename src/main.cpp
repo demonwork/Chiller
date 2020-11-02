@@ -1,64 +1,50 @@
-//#include <Arduino.h>
-
-/*
-  LCD Nokia 5110 ARDUINO
-  1 RST 3
-  2 CE 4
-  3 DC 5
-  4 DIN 6
-  5 CLK 7
-  6 VCC 3.3V
-  7 LIGHT GND
-  8 GND GND
-*/
-
-/*
-
-тестовые значения
-
-*/
-
-
-
 #include <Adafruit_GFX.h>
 #include <Adafruit_PCD8544.h>
 #include <SPI.h>
-#include <OneWire.h>
-#include <Wire.h>
+#include "getTemp.h"  // библеотека вынесена в отдельный файл и вс1 что сней связанно. 
 
-Adafruit_PCD8544 display = Adafruit_PCD8544(7, 6, 5, 4, 3);
+// Дисплей Nokia 5110
+//  LCD Nokia 5110 ARDUINO
+//  1 RST 3
+//  2 CE 4
+//  3 DC 5
+//  4 DIN 6
+//  5 CLK 7
+//  6 VCC 3.3V
+//  7 LIGHT GND
+//  8 GND GND
+// ----------  Определение пинов устройств и переменных
+//  На 9 пине датчик температуры.
 
-/*Определение пинов устройств*/
-#define pinButton  11  //пин кнопки
-#define pinVRX A0 //Джойстик Х
-#define pinVRY A1 //Джойстик Y
-bool button_state = false; //состояние кнопки
-int valButton; // счётчик нажатия кнопки ++ 
-long timeButton = 2000;
-uint32_t ms_button = 0;  //Время нажатия кнопки для устранения антидребезга
+  #define pinButton  11  //пин кнопки
+  #define pinVRX A0 //Джойстик Х
+  #define pinVRY A1 //Джойстик Y
+  #define pizoPin  8 // пин зумера
+  
+  Adafruit_PCD8544 display = Adafruit_PCD8544(7, 6, 5, 4, 3);
 
-int valButtonSub; // счётчик нажатия кнопки ++ 
-long timeButtonSub = 3;
-uint32_t ms_buttonSub = 0;  //Время нажатия кнопки для устранения антидребезга
-bool buttonStateSub = false;
+ bool button_state = false; //состояние кнопки
+ int valButton; // счётчик удержания кнопки ++ 
+ long timeButton = 2000; // установленно в 2000 фактически 2сек.
+ uint32_t ms_button = 0;  //Время нажатия кнопки для устранения антидребезга
 
-unsigned long timeLoopAlarm; //Время для таймера моргающего экраном аларма
+ int valButtonSub; // счётчик нажатия кнопки ++ 
+ long timeButtonSub = 3; // установленно в 3 фактиечески 3мс.
+ uint32_t ms_buttonSub = 0;  //Время нажатия кнопки для устранения антидребезга
+ bool buttonStateSub = false;
 
-int pizoPin = 8; // пин зумера
-const int watermeterPin = 2; // пин датчика воды
+ unsigned long timeLoopAlarm; //Время для таймера моргающего экраном аларма
+ const int watermeterPin = 2; // пин датчика воды
 
-OneWire ds(9); // пин датчика температуры DS
-/*переменные для датчика температуры*/
-byte addr[8]; //хранит адрес устройства
-byte data[2]; // Место для значения температуры
-int temp;
-int setTemp = 30; //значение предустановленной критичной температуры
+ int getTemp(); // Вынесено в библеотку и должно быть объявлено в main.
+ int temp; // переменная температуры
+ int setTemp = 30; //значение предустановленной критичной температуры
 
-/*Переменные потока датчика воды*/
-volatile int  pulse_frequency;
-unsigned int  literperhour;
-unsigned long currentTime, loopTime;
-byte sensorInterrupt = 0;
+// Переменные потока датчика воды
+ volatile int  pulse_frequency;
+ unsigned int  literperhour;
+ unsigned long currentTime, loopTime;
+ byte sensorInterrupt = 0;
 
 // Какртинка заставка, при загрузке
 static const unsigned char PROGMEM logo[] = 
@@ -189,31 +175,6 @@ void  getFlow ()
   pulse_frequency++;
 }
 
-/*Функция получения температуры и передача данных в основную функцию*/
-int getTemp ()
-{
- 
-  ds.search(addr); //ищем адрес устройства и помещаем его в массив.
-  ds.reset(); // Начинаем взаимодействие со сброса всех предыдущих команд и параметров
-  //ds.write(0xCC, 0); // Даем датчику DS18b20 команду пропустить поиск по адресу. В нашем случае только одно устрйоство 
-  ds.select(addr);  //выбираем адрес
-  ds.write(0x44, 0); // Даем датчику DS18b20 команду измерить температуру. Само значение температуры мы еще не получаем - датчик его положит во внутреннюю память
-  // delay(500); // Микросхема измеряет температуру, а мы ждем.  
-  ds.reset(); // Теперь готовимся получить значение измеренной температуры
-  //ds.write(0xCC, 0); 
-  ds.select(addr);
-  ds.write(0xBE, 0); // Просим передать нам значение регистров со значением температуры
-  // Получаем и считываем ответ
-  data[0] = ds.read(); // Читаем младший байт значения температуры
-  data[1] = ds.read(); // А теперь старший
-  // Формируем итоговое значение: 
-  //    - сперва "склеиваем" значение, 
-  //    - затем умножаем его на коэффициент, соответсвующий разрешающей способности (для 12 бит по умолчанию - это 0,0625)
-  int temperature =  ((data[1] << 8) | data[0]) * 0.0625;
-  return temperature;
-
-}
-
 /*Функция вывода на экран */
 int displayShow(int f, int t)
  {
@@ -285,94 +246,76 @@ switch (errorcode) {
   } 
 /*Данная функция по работе с меню установки температуры*/
 int menuSet() {
-  pinMode (10,OUTPUT); //подсветка экрана
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setCursor(0,0);
-  display.println("MENU");
-  display.setCursor(0,10);
-  display.println(setTemp, DEC);
-  display.setCursor(0,20);
-  display.println(valButtonSub, DEC);
-  //display.setCursor(0,30);
-  //display.println(buttonStateSub);
-  display.setCursor(0,30);
-  display.println(analogRead(pinVRX));
-  display.setCursor(0,40);
-  display.println(analogRead(pinVRY));
-  display.display();
+    pinMode (10,OUTPUT); //подсветка экрана
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setCursor(0,0);
+    display.println("MENU");
+    display.setCursor(0,10);
+    display.println(setTemp, DEC);
+    display.setCursor(0,20);
+    display.println(valButtonSub, DEC);
+    //display.setCursor(0,30);
+    //display.println(buttonStateSub);
+    display.setCursor(0,30);
+    display.println(analogRead(pinVRX));
+    display.setCursor(0,40);
+    display.println(analogRead(pinVRY));
+    display.display();
+    
+    // Обработка событий кноки
 
-// рабочий кусок кода, но для кнопки
-// Если кнопка нажата инкриментируем   
-if (digitalRead(pinButton)==LOW ) 
-{
-  
-  // считаем каждую миллисекунду и инкрементируем valButton
- if (millis() - ms_buttonSub >= 1) {
-  ms_buttonSub = millis();
-  valButtonSub++;
- }
-}
-
-//Если кнопка отпущена, то сбрасываем valButton
-else { valButtonSub = 0;}
-
-
-//пока кнопка нажата, проверяем значение valButton и если оно совпадает с длительностью timeButton то выполняем действие
-// timeButton это и есть то самое значение задержки удержания кнопки
-if (valButtonSub >= timeButtonSub) {
-
- buttonStateSub = true; // ставим, что кнопка нажата.
+    if (digitalRead(pinButton)==LOW )  {
+              // считаем каждую миллисекунду и инкрементируем valButtonSub
+           if (millis() - ms_buttonSub >= 1) {
+            ms_buttonSub = millis();
+             valButtonSub++;
+            }
+    }
+       //Если кнопка отпущена, то сбрасываем valButtonSub считая, что это  дребезг или не нажатие.
+     else { valButtonSub = 0;}
+            
+       // Кнопка нажата и проверяем значение valButtonSub, если оно совпадает с длительностью *timeButton то выполняем действие
+     if (valButtonSub >= timeButtonSub) {
+          buttonStateSub = true; // ставим, что кнопка нажата и удержана в сабменю.
+    
+           // Данное для выхода из сабменю если кнопка нажата дольше.
+            if(valButtonSub >= 150) {
+           
+               valButtonSub = 0;
+               display.clearDisplay();
+               button_state = false;
+            }
+     } 
      
-     // Данное для выхода из сабменю если кнопка нажата дольше .
-     if(valButtonSub >= 150) {
-       valButtonSub = 0;
-       display.clearDisplay();
-       button_state = false;
-
-     }
-} 
-
-// Если кнопка отпущена и до этого была нажата равному или более установленному времни, то выполняем действие и сбрасываем состояние
-/*if (digitalRead(pinButton) == HIGH && buttonStateSub == true){
-
-setTemp++;
-display.clearDisplay();
-buttonStateSub = false;
-valButtonSub = 0;
+        // Если кнопка отпущена и до этого была нажата равному или более установленному времни, то выполняем действие и сбрасываем состояние
+        /*if (digitalRead(pinButton) == HIGH && buttonStateSub == true){
+        setTemp++;
+        display.clearDisplay();
+        buttonStateSub = false;
+        valButtonSub = 0;
+          }
+          */
+    
+       // Обработка событий джойстика
+       
+      if (analogRead(pinVRY) > 1000) {  // Если стик вправо то ++
+       
+        setTemp++;
+        delay(500);
+      
+      }
+    
+    
+      if (analogRead(pinVRY) < 400) {  // Если стик влево то --
+        
+        setTemp--;
+        delay(500);
+       
+       }
+ 
+ return 0;
 }
-*/
-  
-  
-//читаем значение джойстика
-// Если стик вправо то ++
-if (analogRead(pinVRY) > 1000) {
-
-setTemp++;
-delay(500);
-
-}
-// Если стик влево то --
-if (analogRead(pinVRY) < 400) {
-setTemp--;
-delay(500);
-
-}
-
-  
-  return 0;
-
-}
-
-
-
-
-
-
-
-
-
-
 
 /*Основная функция, запрашивает поток и время, а затем отсылает на дисплей.*/
 int rootSys() {
@@ -416,7 +359,6 @@ return 0;
 void setup()
 {
   pinMode(watermeterPin, INPUT);
-//  Serial.begin(9600);
   // прерывание на пине к которому подключен датчик воды, дёргает когда приходят данные
   attachInterrupt(sensorInterrupt, getFlow, FALLING);
   
