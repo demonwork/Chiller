@@ -36,6 +36,10 @@
  unsigned long timeLoopAlarm; //Время для таймера моргающего экраном аларма
  const int watermeterPin = 2; // пин датчика воды
 
+ short int flagMenu = 0; // флаг меню.
+
+
+
  int getTemp(); // Вынесено в библеотку и должно быть объявлено в main.
  int temp; // переменная температуры
  int setTemp = 30; //значение предустановленной критичной температуры
@@ -246,6 +250,10 @@ switch (errorcode) {
   } 
 /*Данная функция по работе с меню установки температуры*/
 int menuSet() {
+
+  switch (flagMenu)
+  {
+  case 0:
     pinMode (10,OUTPUT); //подсветка экрана
     display.clearDisplay();
     display.setTextSize(1);
@@ -262,6 +270,30 @@ int menuSet() {
     display.setCursor(0,40);
     display.println(analogRead(pinVRY));
     display.display();
+    
+    break;
+  case 1:
+    pinMode (10,OUTPUT); //подсветка экрана
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setCursor(0,0);
+    display.println("SET FLOW");
+    display.setCursor(0,10);
+    display.println(setTemp, DEC);
+    display.setCursor(0,20);
+    display.println(valButtonSub, DEC);
+    //display.setCursor(0,30);
+    //display.println(buttonStateSub);
+    display.setCursor(0,30);
+    display.println(analogRead(pinVRX));
+    display.setCursor(0,40);
+    display.println(analogRead(pinVRY));
+    display.display();
+    break;
+  default:
+    break;
+  }
+    
     
     // Обработка событий кноки
 
@@ -280,12 +312,21 @@ int menuSet() {
           buttonStateSub = true; // ставим, что кнопка нажата и удержана в сабменю.
     
            // Данное для выхода из сабменю если кнопка нажата дольше.
-            if(valButtonSub >= 150) {
+            if(valButtonSub >= 150 && flagMenu == 0) {
            
                valButtonSub = 0;
                display.clearDisplay();
+               flagMenu = 1;
+            }
+            if(valButtonSub >= 150 && flagMenu == 1) {
+           
+               valButtonSub = 0;
+               display.clearDisplay();
+               flagMenu = 0;
                button_state = false;
             }
+
+            
      } 
      
         // Если кнопка отпущена и до этого была нажата равному или более установленному времни, то выполняем действие и сбрасываем состояние
