@@ -1,6 +1,7 @@
+#include <OneWire.h>
+#include <Wire.h>
 #ifdef GETTEMP_H
 #define GETTEMP_H
 
-int getTemp();
-
+int getTemp(OneWire *ds);
 #endif

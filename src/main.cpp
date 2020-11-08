@@ -1,6 +1,9 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_PCD8544.h>
 #include <SPI.h>
+//#include <OneWire.h>
+//#include <Wire.h>
+
 #include "getTemp.h"  // библеотека вынесена в отдельный файл и вс1 что сней связанно. 
 
 // Дисплей Nokia 5110
@@ -21,6 +24,9 @@
   #define pinVRY A1 //Джойстик Y
   #define pizoPin  8 // пин зумера
   
+  OneWire ds(9); // пин датчика температуры DS
+  int getTemp(OneWire *ds); // Вынесено в файл и должно быть объявлено в main.
+
   Adafruit_PCD8544 display = Adafruit_PCD8544(7, 6, 5, 4, 3);
 
  bool button_state = false; //состояние кнопки
@@ -40,10 +46,11 @@
 
 
 
- int getTemp(); // Вынесено в библеотку и должно быть объявлено в main.
+ //int getTemp(); // Вынесено в файл и должно быть объявлено в main.
+ 
  int temp; // переменная температуры
  int setTemp = 30; //значение предустановленной критичной температуры
-
+ int setFlow = 100; //значение предустановленного критическго потока
 // Переменные потока датчика воды
  volatile int  pulse_frequency;
  unsigned int  literperhour;
@@ -183,21 +190,34 @@ void  getFlow ()
 int displayShow(int f, int t)
  {
   
-    display.setTextSize(1);
-    display.drawBitmap(0,10,cooler,24,15,f);  // удобно f ставить, если = 0 то иконки нет.
-    display.setTextSize(2);
-    display.setCursor(26,8);
-    display.println(f, DEC);
-    display.drawBitmap(0,25,heat,24,20,1);
+    
+    display.drawBitmap(0,0,heat,24,20,1);
     display.setTextSize(3);
-    display.setCursor(26,24);
+    display.setCursor(26,0);
     display.println(t);
     display.setTextSize(1);
-    display.setCursor(63,22);
+    display.setCursor(63,0);
     display.println("o");
     display.setTextSize(2);
-    display.setCursor(64,30);
+    display.setCursor(67,7);
     display.println("C");
+    //
+    //display.setTextSize(1);
+    display.drawBitmap(0,22,cooler,24,15,f);  // удобно f ставить, если = 0 то иконки нет.
+    display.setTextSize(2);
+    display.setCursor(26,22);
+    display.println(f, DEC);
+    //
+    display.setTextSize(1);
+    display.setCursor(0,40);
+    display.print("[T-");
+    display.print(setTemp);
+    display.print("]");
+    display.print("[F-");
+    display.print(setFlow);
+    display.print("]");
+
+    
     display.display();
     display.clearDisplay();
 
@@ -369,7 +389,8 @@ currentTime = millis();
     pulse_frequency = 0;
 
     // дёргаем датчик температуры и забираем данные.
-    temp = getTemp();   
+    //temp = getTemp();   
+temp = getTemp(&ds);   
 
  
  //Проверка условий температуры и потока воды
