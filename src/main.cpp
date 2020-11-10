@@ -1,10 +1,7 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_PCD8544.h>
 #include <SPI.h>
-//#include <OneWire.h>
-//#include <Wire.h>
-
-#include "getTemp.h"  // библеотека вынесена в отдельный файл и вс1 что сней связанно. 
+#include "getTemp.h"  // Вынесена функция температуры в отдельный файл и OneWire.h Wire.h. 
 
 // Дисплей Nokia 5110
 //  LCD Nokia 5110 ARDUINO
@@ -42,11 +39,7 @@
  unsigned long timeLoopAlarm; //Время для таймера моргающего экраном аларма
  const int watermeterPin = 2; // пин датчика воды
 
- short int flagMenu = 0; // флаг меню.
-
-
-
- //int getTemp(); // Вынесено в файл и должно быть объявлено в main.
+ short int flagMenu = 0; // флаг меню, по этому флагу понимаем в какое меню попадаем 0 - Temp, 1 = Flow.
  
  int temp; // переменная температуры
  int setTemp = 30; //значение предустановленной критичной температуры
@@ -274,41 +267,40 @@ int menuSet() {
   switch (flagMenu)
   {
   case 0:
-    pinMode (10,OUTPUT); //подсветка экрана
+    
+    digitalWrite(10, LOW); //зажигает подсветку.
     display.clearDisplay();
     display.setTextSize(1);
     display.setCursor(0,0);
-    display.println("MENU");
-    display.setCursor(0,10);
-    display.println(setTemp, DEC);
-    display.setCursor(0,20);
-    display.println(valButtonSub, DEC);
-    //display.setCursor(0,30);
-    //display.println(buttonStateSub);
-    display.setCursor(0,30);
-    display.println(analogRead(pinVRX));
+    display.println("> Set temp [T]");
+    display.setTextSize(2);
+    display.setCursor(5,15);
+    display.print("<-");
+    display.print(setTemp, DEC);
+    display.print("+>");
+    display.setTextSize(1);
     display.setCursor(0,40);
-    display.println(analogRead(pinVRY));
+    display.println("Hold to next");
     display.display();
     
     break;
   case 1:
-    pinMode (10,OUTPUT); //подсветка экрана
+    
+    digitalWrite(10, LOW); //зажигает подсветку.
     display.clearDisplay();
     display.setTextSize(1);
     display.setCursor(0,0);
-    display.println("SET FLOW");
-    display.setCursor(0,10);
-    display.println(setTemp, DEC);
-    display.setCursor(0,20);
-    display.println(valButtonSub, DEC);
-    //display.setCursor(0,30);
-    //display.println(buttonStateSub);
-    display.setCursor(0,30);
-    display.println(analogRead(pinVRX));
+    display.println("> Set flow [F]");
+    display.setTextSize(2);
+    display.setCursor(0,15);
+    display.print("<-");
+    display.print(setFlow, DEC);
+    display.print("+>");
+    display.setTextSize(1);
     display.setCursor(0,40);
-    display.println(analogRead(pinVRY));
+    display.println("Hold to save");
     display.display();
+    
     break;
   default:
     break;
@@ -348,37 +340,55 @@ int menuSet() {
 
             
      } 
-     
-        // Если кнопка отпущена и до этого была нажата равному или более установленному времни, то выполняем действие и сбрасываем состояние
-        /*if (digitalRead(pinButton) == HIGH && buttonStateSub == true){
-        setTemp++;
-        display.clearDisplay();
-        buttonStateSub = false;
-        valButtonSub = 0;
-          }
-          */
-    
+                
        // Обработка событий джойстика
        
       if (analogRead(pinVRY) > 1000) {  // Если стик вправо то ++
        
+       switch (flagMenu)
+       {
+       case 0:
         setTemp++;
         delay(500);
+         break;
+
+        case 1:
+        setFlow++;
+        delay(500);
+        break; 
+       
+       default:
+         break;
+       }
+        
       
       }
     
     
       if (analogRead(pinVRY) < 400) {  // Если стик влево то --
         
+        switch (flagMenu)
+       {
+       case 0:
         setTemp--;
         delay(500);
+         break;
+
+        case 1:
+        setFlow--;
+        delay(500);
+        break; 
        
+       default:
+         break;
+       }
+        
        }
  
  return 0;
 }
 
-/*Основная функция, запрашивает поток и время, а затем отсылает на дисплей.*/
+/*Основная функция, запрашивает поток и температуру, а затем отсылает на дисплей.*/
 int rootSys() {
 
 currentTime = millis();
@@ -489,6 +499,16 @@ if (valButton >= timeButton && !button_state ) {
     }
    
 
-  
+
+    if (analogRead(pinVRX) > 1000) {
+      digitalWrite(10, LOW); //зажигает подсветку.      
+    }
+
+    if (analogRead(pinVRX) < 400) {
+      digitalWrite(10, HIGH); //зажигает подсветку.
+    }
+
+
+
 }
 
