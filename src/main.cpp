@@ -24,7 +24,6 @@
 #define pizoPin 8    // пин зумера
 
 OneWire ds(9);            // пин датчика температуры DS
-int getTemp(OneWire *ds); // Вынесено в файл и должно быть объявлено в main.
 
 Adafruit_PCD8544 display = Adafruit_PCD8544(7, 6, 5, 4, 3);
 
