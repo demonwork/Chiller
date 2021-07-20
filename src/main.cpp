@@ -1,9 +1,8 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_PCD8544.h>
 #include <SPI.h>
-// Вынесена функция температуры в отдельный файл и OneWire.h Wire.h.
-#include "getTemp.h"
 #include "images.h"
+#include <DallasTemperature.h>
 
 // Дисплей Nokia 5110
 //  LCD Nokia 5110 ARDUINO
@@ -18,14 +17,24 @@
 // ----------  Определение пинов устройств и переменных
 //  На 9 пине датчик температуры.
 
+#define LCD_RST 3
+#define LCD_CE 4
+#define LCD_DC 5
+#define LCD_DIN 6
+#define LCD_CLK 7
+
 #define pinButton 11 // пин кнопки
 #define pinVRX A0    // Джойстик Х
 #define pinVRY A1    // Джойстик Y
 #define pizoPin 8    // пин зумера
 
-OneWire ds(9);            // пин датчика температуры DS
+#define ONE_WIRE_BUS 9
+OneWire oneWire(ONE_WIRE_BUS);            // пин датчика температуры DS
+DallasTemperature sensors(&oneWire);
+DeviceAddress waterThermometerAddr;
+int TEMPERATURE_PRECISION = 9;
 
-Adafruit_PCD8544 display = Adafruit_PCD8544(7, 6, 5, 4, 3);
+Adafruit_PCD8544 display = Adafruit_PCD8544(LCD_CLK, LCD_DIN, LCD_DC, LCD_CE, LCD_RST);
 
 bool button_state = false; // состояние кнопки
 int valButton;             // счётчик удержания кнопки ++
@@ -38,23 +47,23 @@ uint32_t ms_buttonSub = 0; // Время нажатия кнопки для ус
 bool buttonStateSub = false;
 
 unsigned long timeLoopAlarm; // Время для таймера моргающего экраном аларма
-const int watermeterPin = 2; // пин датчика воды
+const int waterFlowPin = 2; // пин датчика воды
 
 short int flagMenu = 0; // флаг меню, по этому флагу понимаем в какое меню попадаем 0 - Temp, 1 = Flow.
 
-int temp;          // переменная температуры
+float temp;          // переменная температуры
 int setTemp = 30;  // значение предустановленной критичной температуры
 int setFlow = 100; // значение предустановленного критическго потока
                    // Переменные потока датчика воды
 volatile int pulse_frequency;
 unsigned int literperhour;
 unsigned long currentTime, loopTime;
-byte sensorInterrupt = 0;
+byte waterFlowInterruptNumber = 0;
 
 /**
  *  функция полученя данных с датчика потока, работает по прерыванию
  */
-void getFlow()
+void waterFlowInterruptHandler()
 {
   pulse_frequency++;
 }
@@ -62,13 +71,13 @@ void getFlow()
 /**
  * Функция вывода на экран
  */
-int displayShow(int f, int t)
+int displayShow(int f, float t)
 {
 
   display.drawBitmap(0, 0, heatImg, 24, 20, 1);
   display.setTextSize(3);
   display.setCursor(26, 0);
-  display.println(t);
+  display.println(t, 0);
   display.setTextSize(1);
   display.setCursor(63, 0);
   display.println("o");
@@ -291,10 +300,10 @@ int rootSys()
     pulse_frequency = 0;
 
     // дёргаем датчик температуры и забираем данные.
-    // temp = getTemp();
-    temp = getTemp(&ds);
+    sensors.requestTemperatures();
+    temp = sensors.getTempC(waterThermometerAddr);
 
-    //Проверка условий температуры и потока воды
+    // Проверка условий температуры и потока воды
     if (temp >= setTemp)
     {
       // ставим номерок кода и передаём в функцию Аларма, там само пусть разбирается что писать.
@@ -320,9 +329,17 @@ int rootSys()
 
 void setup()
 {
-  pinMode(watermeterPin, INPUT);
+  Serial.begin(9600);
+  Serial.println("Chiller start.");
+
+  // инициализируем либу для работы с датчиками температуры
+  sensors.begin();
+  sensors.getAddress(waterThermometerAddr, 0);
+  sensors.setResolution(waterThermometerAddr, TEMPERATURE_PRECISION);
+
+  pinMode(waterFlowPin, INPUT);
   // прерывание на пине к которому подключен датчик воды, дёргает когда приходят данные
-  attachInterrupt(sensorInterrupt, getFlow, FALLING);
+  attachInterrupt(waterFlowInterruptNumber, waterFlowInterruptHandler, FALLING);
 
   // Проверяем данные и выводим без задержки сравнивая время.
   currentTime = millis();
