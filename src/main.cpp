@@ -3,6 +3,7 @@
 #include <SPI.h>
 #include "images.h"
 #include <DallasTemperature.h>
+#include <Wire.h>
 
 // Дисплей Nokia 5110
 //  LCD Nokia 5110 ARDUINO
@@ -27,6 +28,9 @@
 #define pinVRX A0    // Джойстик Х
 #define pinVRY A1    // Джойстик Y
 #define pizoPin 8    // пин зумера
+
+// период между измерениями температуры и потока в милисекундах
+#define MEASURE_PERIOD_LENGTH 1000
 
 #define ONE_WIRE_BUS 9
 OneWire oneWire(ONE_WIRE_BUS);            // пин датчика температуры DS
@@ -55,10 +59,11 @@ float temp;          // переменная температуры
 int setTemp = 30;  // значение предустановленной критичной температуры
 int setFlow = 100; // значение предустановленного критическго потока
                    // Переменные потока датчика воды
-volatile int pulse_frequency;
-unsigned int literperhour;
-unsigned long currentTime, loopTime;
-byte waterFlowInterruptNumber = 0;
+volatile uint16_t pulse_frequency;
+uint8_t litersPerHour, litersPerMinute;
+uint64_t currentTime;
+uint16_t measuredPeriod, currentTimePrev;
+uint8_t waterFlowInterruptNumber = 0;
 
 /**
  *  функция полученя данных с датчика потока, работает по прерыванию
@@ -293,10 +298,14 @@ int menuSet()
 int rootSys()
 {
   currentTime = millis();
-  if (currentTime >= (loopTime + 1000))
+  measuredPeriod = currentTime - currentTimePrev;
+  if (measuredPeriod >= MEASURE_PERIOD_LENGTH)
   {
-    loopTime = currentTime;
-    literperhour = (pulse_frequency * 60 / 7.5);
+    Serial.print("measuredPeriod = ");
+    Serial.println(measuredPeriod);
+    currentTimePrev = currentTime;
+    litersPerMinute = (pulse_frequency / (measuredPeriod / MEASURE_PERIOD_LENGTH)) / 7.5f;
+    litersPerHour = litersPerMinute * 60;
     pulse_frequency = 0;
 
     // дёргаем датчик температуры и забираем данные.
@@ -309,13 +318,13 @@ int rootSys()
       // ставим номерок кода и передаём в функцию Аларма, там само пусть разбирается что писать.
       int error = 1;
       // выводим ошибку.
-      displayAlarm(error, literperhour, temp);
+      displayAlarm(error, litersPerHour, temp);
     }
 
     if (temp < setTemp)
     {
       // Отправляем данные на экран с текущими показателями.
-      displayShow(literperhour, temp);
+      displayShow(litersPerHour, temp);
     }
 
     // Вынес в loop
@@ -323,7 +332,7 @@ int rootSys()
     //   menuSet();
     // }
   }
-
+delay(500);
   return 0;
 }
 
@@ -343,7 +352,7 @@ void setup()
 
   // Проверяем данные и выводим без задержки сравнивая время.
   currentTime = millis();
-  loopTime = currentTime;
+  measuredPeriod = currentTimePrev = currentTime;
 
   // LCD дисплей, инициализация и заставка
   display.begin();
@@ -420,5 +429,5 @@ void loop()
   {
     // зажигает подсветку.
     digitalWrite(10, HIGH);
-  }
+  }  
 }
