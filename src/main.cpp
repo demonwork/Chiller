@@ -46,10 +46,18 @@ Adafruit_PCD8544 display = Adafruit_PCD8544(LCD_CLK, LCD_DIN, LCD_DC, LCD_CE, LC
 unsigned long timeLoopAlarm; // Время для таймера моргающего экраном аларма
 const int waterFlowPin = 2;  // пин датчика воды
 
-float temp;        // переменная температуры
-int setTemp;  // значение предустановленной критичной температуры
-int setFlow; // значение предустановленного критическго потока
-                   // Переменные потока датчика воды
+// текущая температурв
+float temp;
+// значение опасно высокой температуры
+uint8_t tempWarning;
+// значение аварийно высокой температуры
+uint8_t tempAlarm;
+// значение опасно низкого потока
+uint8_t flowWarning;
+// значение аварийно низкого потока
+uint8_t flowAlarm;
+
+// Переменные потока датчика воды
 volatile uint16_t pulse_frequency;
 uint8_t litersPerHour, litersPerMinute;
 uint64_t currentTime;
@@ -58,12 +66,27 @@ uint8_t waterFlowInterruptNumber = 0;
 
 GButton button(pinButton);
 #define MODE_MAIN_SCREEN 0
-#define MODE_SET_TEMP 2
-#define MODE_SET_FLOW 3
+#define MODE_SET_TEMP_WARNING 1
+#define MODE_SET_TEMP_ALARM 2
+#define MODE_SET_FLOW_WARNING 3
+#define MODE_SET_FLOW_ALARM 4
 uint8_t mode = MODE_MAIN_SCREEN;
 
-#define SETTINGS_ADDR_TEMP 0
-#define SETTINGS_ADDR_FLOW 1
+#define SETTINGS_ADDR_TEMP_WARNING 0
+#define SETTINGS_ADDR_TEMP_ALARM 1
+#define SETTINGS_ADDR_FLOW_WARNING 2
+#define SETTINGS_ADDR_FLOW_ALARM 3
+
+enum events
+{
+  eventNone,
+  eventTempWarning,
+  eventTempAlarm,
+  eventFlowWarning,
+  eventFlowAlarm
+};
+
+uint8_t event = eventNone;
 
 /**
  *  функция полученя данных с датчика потока, работает по прерыванию
@@ -98,11 +121,11 @@ int displayMainScreen(int f, float t)
   //
   display.setTextSize(1);
   display.setCursor(0, 40);
-  display.print("[T-");
-  display.print(setTemp);
+  display.print("[T=");
+  display.print(tempAlarm);
   display.print("]");
-  display.print("[F-");
-  display.print(setFlow);
+  display.print("[F=");
+  display.print(flowAlarm);
   display.print("]");
 
   display.display();
@@ -114,20 +137,20 @@ int displayMainScreen(int f, float t)
 /**
  * Функция вывода сигнализации на экран
  */
-int displayAlarm(int errorcode, int f, int t)
+void displayAlarm(uint8_t event, int f, int t)
 {
-  switch (errorcode)
-  {
+  display.clearDisplay();
+  // зажигает подсветку.
+  digitalWrite(10, LOW);
 
-  case 1:
+  switch (event)
+  {
+  case eventTempWarning:
     tone(pizoPin, 500, 500);
-    // зажигает подсветку.
-    digitalWrite(10, LOW);
-    display.clearDisplay();
     display.drawBitmap(0, 15, exclaimImg, 24, 20, 1);
     display.setTextSize(1);
     display.setCursor(10, 0);
-    display.println("HIGH WATER!");
+    display.println("CHECK TEMP!");
     display.setTextSize(3);
     display.setCursor(28, 15);
     display.println(t);
@@ -141,93 +164,127 @@ int displayAlarm(int errorcode, int f, int t)
     display.setCursor(0, 40);
     display.println("STOP WORK NOW!");
     display.display();
-
-    if (millis() - timeLoopAlarm >= 3000)
-    {
-      // гасим экран.
-      digitalWrite(10, HIGH);
-      timeLoopAlarm = millis();
-    }
-
     break;
 
-  case 2:
+  case eventTempAlarm:
+    tone(pizoPin, 500, 500);
+    // зажигает подсветку.
+    digitalWrite(10, LOW);
+    display.clearDisplay();
+    display.drawBitmap(0, 15, exclaimImg, 24, 20, 1);
+    display.setTextSize(1);
+    display.setCursor(10, 0);
+    display.println("HIGH TEMP!");
+    display.setTextSize(3);
+    display.setCursor(28, 15);
+    display.println(t);
+    display.setTextSize(1);
+    display.setCursor(65, 12);
+    display.println("o");
+    display.setTextSize(2);
+    display.setCursor(68, 20);
+    display.println("C");
+    display.setTextSize(1);
+    display.setCursor(0, 40);
+    display.println("STOP WORK NOW!");
+    display.display();
+    break;
+
+  case eventFlowWarning:
+    tone(pizoPin, 500, 500);
+    // зажигает подсветку.
+    digitalWrite(10, LOW);
+    display.clearDisplay();
+    display.drawBitmap(0, 15, exclaimImg, 24, 20, 1);
+    display.setTextSize(1);
+    display.setCursor(10, 0);
+    display.println("CHECK FLOW!");
+    display.setTextSize(3);
+    display.setCursor(28, 15);
+    display.println(t);
+    display.setTextSize(1);
+    display.setCursor(65, 12);
+    display.println("o");
+    display.setTextSize(2);
+    display.setCursor(68, 20);
+    display.println("C");
+    display.setTextSize(1);
+    display.setCursor(0, 40);
+    display.println("STOP WORK NOW!");
+    display.display();
+    break;
+
+  case eventFlowAlarm:
+    tone(pizoPin, 500, 500);
+    // зажигает подсветку.
+    digitalWrite(10, LOW);
+    display.clearDisplay();
+    display.drawBitmap(0, 15, exclaimImg, 24, 20, 1);
+    display.setTextSize(1);
+    display.setCursor(10, 0);
+    display.println("LOW FLOW!");
+    display.setTextSize(3);
+    display.setCursor(28, 15);
+    display.println(t);
+    display.setTextSize(1);
+    display.setCursor(65, 12);
+    display.println("o");
+    display.setTextSize(2);
+    display.setCursor(68, 20);
+    display.println("C");
+    display.setTextSize(1);
+    display.setCursor(0, 40);
+    display.println("STOP WORK NOW!");
+    display.display();
     break;
   }
 
-  return 0;
+  // if (millis() - timeLoopAlarm >= 3000)
+  // {
+  //   // гасим экран.
+  //   digitalWrite(10, HIGH);
+  //   timeLoopAlarm = millis();
+  // }
 }
 
-void displaySetTemp()
+void displaySetValue(const char *title, uint8_t value)
 {
   // зажигает подсветку.
   digitalWrite(10, LOW);
   display.clearDisplay();
   display.setTextSize(1);
   display.setCursor(0, 0);
-  display.println("> Set temp [T]");
+  display.println(title);
   display.setTextSize(2);
   display.setCursor(5, 15);
-  display.print("<-");
-  display.print(setTemp, DEC);
-  display.print("+>");
+  display.print("- ");
+  display.print(value, DEC);
+  if (value < 100)
+  {
+    display.print(" ");
+  }
+
+  display.print("+");
   display.setTextSize(1);
   display.setCursor(0, 40);
   display.println("Click to save");
   display.display();
 }
 
-void displaySetFlow()
-{
-  // зажигает подсветку.
-  digitalWrite(10, LOW);
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setCursor(0, 0);
-  display.println("> Set flow [F]");
-  display.setTextSize(2);
-  display.setCursor(0, 15);
-  display.print("<-");
-  display.print(setFlow, DEC);
-  display.print("+>");
-  display.setTextSize(1);
-  display.setCursor(0, 40);
-  display.println("Click to save");
-  display.display();
-}
-
-void readJoystickTemp()
+void readJoystickValue(uint8_t *value)
 {
   // Обработка событий джойстика
   if (analogRead(pinVRY) > 1000)
   {
     // Если стик вправо то ++
-    setTemp++;
+    (*value)++;
     delay(200);
   }
 
   if (analogRead(pinVRY) < 400)
   {
     // Если стик влево то --
-    setTemp--;
-    delay(200);
-  }
-}
-
-void readJoystickFlow()
-{
-  // Обработка событий джойстика
-  if (analogRead(pinVRY) > 1000)
-  {
-    // Если стик вправо то ++
-    setFlow++;
-    delay(200);
-  }
-
-  if (analogRead(pinVRY) < 400)
-  {
-    // Если стик влево то --
-    setFlow--;
+    (*value)--;
     delay(200);
   }
 }
@@ -250,7 +307,7 @@ void readJoystickMainScreen()
 /**
  * Основная функция, запрашивает поток и температуру, а затем отсылает на дисплей.
  */
-int rootSys()
+void rootSys()
 {
   currentTime = millis();
   measuredPeriod = currentTime - currentTimePrev;
@@ -259,29 +316,36 @@ int rootSys()
     currentTimePrev = currentTime;
     litersPerMinute = (pulse_frequency / (measuredPeriod / MEASURE_PERIOD_LENGTH)) / 7.5f;
     litersPerHour = litersPerMinute * 60;
+#ifdef DEBUG
+    litersPerHour = 113;
+#endif
     pulse_frequency = 0;
 
     // дёргаем датчик температуры и забираем данные.
     sensors.requestTemperatures();
     temp = sensors.getTempC(waterThermometerAddr);
 
-    // Проверка условий температуры и потока воды
-    if (temp >= setTemp)
+    if (temp >= tempWarning && temp < tempAlarm)
     {
-      // ставим номерок кода и передаём в функцию Аларма, там само пусть разбирается что писать.
-      int error = 1;
-      // выводим ошибку.
-      displayAlarm(error, litersPerHour, temp);
+      event = eventTempWarning;
     }
-
-    if (temp < setTemp)
+    else if (temp >= tempAlarm)
     {
-      // Отправляем данные на экран с текущими показателями.
-      displayMainScreen(litersPerHour, temp);
+      event = eventTempAlarm;
+    }
+    else if (litersPerHour > flowAlarm && litersPerHour <= flowWarning)
+    {
+      event = eventFlowWarning;
+    }
+    else if (litersPerHour <= flowAlarm)
+    {
+      event = eventFlowAlarm;
+    }
+    else
+    {
+      event = eventNone;
     }
   }
-
-  return 0;
 }
 
 void setup()
@@ -321,11 +385,17 @@ void setup()
   button.setTickMode(AUTO);
 
   uint8_t settings = 0;
-  settings = EEPROM.read(SETTINGS_ADDR_TEMP);
-  setTemp = settings == 0 ? 30 : settings;
+  settings = EEPROM.read(SETTINGS_ADDR_TEMP_WARNING);
+  tempWarning = settings == 0 ? 20 : settings;
 
-  settings = EEPROM.read(SETTINGS_ADDR_FLOW);
-  setFlow = settings == 0 ? 100 : settings;
+  settings = EEPROM.read(SETTINGS_ADDR_TEMP_ALARM);
+  tempAlarm = settings == 0 ? 30 : settings;
+
+  settings = EEPROM.read(SETTINGS_ADDR_FLOW_WARNING);
+  flowWarning = settings == 0 ? 90 : settings;
+
+  settings = EEPROM.read(SETTINGS_ADDR_FLOW_ALARM);
+  flowAlarm = settings == 0 ? 100 : settings;
 
   // Пищим при запуске.
   tone(pizoPin, 400, 300);
@@ -340,39 +410,72 @@ void loop()
   bool isClick = button.isClick();
   if (mode == MODE_MAIN_SCREEN && isClick)
   {
-    mode = MODE_SET_TEMP;
+    mode = MODE_SET_TEMP_WARNING;
     isClick = false;
   }
 
-  if (mode == MODE_SET_TEMP && isClick)
+  if (mode == MODE_SET_TEMP_WARNING && isClick)
   {
-    mode = MODE_SET_FLOW;
+    mode = MODE_SET_TEMP_ALARM;
     isClick = false;
-    EEPROM.update(SETTINGS_ADDR_TEMP, setTemp);
+    EEPROM.update(SETTINGS_ADDR_TEMP_WARNING, tempWarning);
     display.clearDisplay();
   }
 
-  if (mode == MODE_SET_FLOW && isClick)
+  if (mode == MODE_SET_TEMP_ALARM && isClick)
+  {
+    mode = MODE_SET_FLOW_WARNING;
+    isClick = false;
+    EEPROM.update(SETTINGS_ADDR_TEMP_ALARM, tempAlarm);
+    display.clearDisplay();
+  }
+
+  if (mode == MODE_SET_FLOW_WARNING && isClick)
+  {
+    mode = MODE_SET_FLOW_ALARM;
+    isClick = false;
+    EEPROM.update(SETTINGS_ADDR_FLOW_WARNING, flowWarning);
+    display.clearDisplay();
+  }
+
+  if (mode == MODE_SET_FLOW_ALARM && isClick)
   {
     mode = MODE_MAIN_SCREEN;
     isClick = false;
-    EEPROM.update(SETTINGS_ADDR_FLOW, setFlow);
+    EEPROM.update(SETTINGS_ADDR_FLOW_ALARM, flowAlarm);
     display.clearDisplay();
   }
+
+  rootSys();
 
   switch (mode)
   {
   case MODE_MAIN_SCREEN:
     readJoystickMainScreen();
-    rootSys();
+    if (event == eventNone)
+    {
+      displayMainScreen(litersPerHour, temp);
+    }
+    else
+    {
+      displayAlarm(event, litersPerHour, temp);
+    }
     break;
-  case MODE_SET_TEMP:
-    readJoystickTemp();
-    displaySetTemp();
+  case MODE_SET_TEMP_WARNING:
+    readJoystickValue(&tempWarning);
+    displaySetValue("Set temp [TW]", tempWarning);
     break;
-  case MODE_SET_FLOW:
-    readJoystickFlow();
-    displaySetFlow();
+  case MODE_SET_TEMP_ALARM:
+    readJoystickValue(&tempAlarm);
+    displaySetValue("Set temp [TA]", tempAlarm);
+    break;
+  case MODE_SET_FLOW_WARNING:
+    readJoystickValue(&flowWarning);
+    displaySetValue("Set flow [FW]", flowWarning);
+    break;
+  case MODE_SET_FLOW_ALARM:
+    readJoystickValue(&flowAlarm);
+    displaySetValue("Set flow [FA]", flowAlarm);
     break;
   }
 }
