@@ -8,6 +8,31 @@
 #include <EEPROM.h>
 #include <FastCRC.h>
 
+/*
+ * TODO:
+ * - Удобный интерфейс для настройки
+ * - Выделить пин для реле, через которое будет "нажиматься" конопка аварийной остановки
+ * - Рисовать на дисплее только когда нужно, не каждый раз в цикле
+ * - Экран маленький, вывод текущих значений датчиков по очереди
+ * - Экран маленький, вывод опасных/критических значений по очереди
+ * - Показывать десятые доли температуры
+ * - Для опасных событий звук попроще чем сирена
+ * - В аварийных ситуациях при мигании, вместо пустого экрана, показывать например крест
+ * - В опасных ситуациях при мигании, вместо пустого экрана, показывать например !
+ */
+
+/*
+ * FIXME:
+ * - Так как "нормальный" звук можно получить только через delay(), моргание экраном реализовано не прозрачно.
+ * Один цикл сирены это 3 секунды, в "разрыве" 1,5 секунды сейчас гасится экран.
+ * Нужно реализовать таймер, в котором будет "гасится" экран.
+ * - Из за множества задержек, в меньшей степени на экранах настройки, в большей степени в аварийных режимах,
+ * не срабатывает ручной опрос кнопки.
+ * Опрос кнопки нужно реализовать через таймер.
+ * 
+ * Возможно удастся объеденить решение обоих проблем в одном таймере.
+ */
+
 // Дисплей Nokia 5110
 //  LCD Nokia 5110 ARDUINO
 //  1 RST 3
@@ -73,7 +98,8 @@ GButton button(pinButton);
 #define MODE_SET_FLOW_ALARM 4
 uint8_t mode = MODE_MAIN_SCREEN;
 
-#define SETTINGS_ADDR_CRC 0
+#define SETTINGS_ADDR_CRC_H 0
+#define SETTINGS_ADDR_CRC_L 1
 #define SETTINGS_ADDR_TEMP_WARNING 2
 #define SETTINGS_ADDR_TEMP_ALARM 3
 #define SETTINGS_ADDR_FLOW_WARNING 4
@@ -341,10 +367,8 @@ bool readSettings()
   uint8_t settings = 0;
   uint8_t tmpBuff[4];
 
-  eepromCrc = EEPROM.read(SETTINGS_ADDR_CRC) << 8;
-  Serial.println(eepromCrc);
-  eepromCrc |= 0x00FF & EEPROM.read(SETTINGS_ADDR_CRC + 1);
-  Serial.println(eepromCrc);
+  eepromCrc = EEPROM.read(SETTINGS_ADDR_CRC_H) << 8;
+  eepromCrc |= 0x00FF & EEPROM.read(SETTINGS_ADDR_CRC_L);
 
   settings = EEPROM.read(SETTINGS_ADDR_TEMP_WARNING);
   // tempWarning = settings == 0 ? 20 : settings;
@@ -364,7 +388,6 @@ bool readSettings()
 
   FastCRC16 CRC16;
   calcCrc = CRC16.ccitt(tmpBuff, sizeof(tmpBuff));
-  Serial.println(calcCrc);
   if (eepromCrc != calcCrc)
   {
     return false;
@@ -391,9 +414,8 @@ void writeSettings()
 
   FastCRC16 CRC16;
   calcCrc = CRC16.ccitt(tmpBuff, sizeof(tmpBuff));
-  Serial.println(calcCrc);
-  EEPROM.update(SETTINGS_ADDR_CRC, (uint8_t)(calcCrc >> 8));
-  EEPROM.update(SETTINGS_ADDR_CRC + 1, (uint8_t)calcCrc);
+  EEPROM.update(SETTINGS_ADDR_CRC_H, (uint8_t)(calcCrc >> 8));
+  EEPROM.update(SETTINGS_ADDR_CRC_L, (uint8_t)calcCrc);
 }
 
 void setup()
@@ -465,7 +487,6 @@ void loop()
   {
     mode = MODE_SET_TEMP_ALARM;
     isClick = false;
-    // EEPROM.update(SETTINGS_ADDR_TEMP_WARNING, tempWarning);
     writeSettings();
   }
 
@@ -473,7 +494,6 @@ void loop()
   {
     mode = MODE_SET_FLOW_WARNING;
     isClick = false;
-    // EEPROM.update(SETTINGS_ADDR_TEMP_ALARM, tempAlarm);
     writeSettings();
   }
 
@@ -481,7 +501,6 @@ void loop()
   {
     mode = MODE_SET_FLOW_ALARM;
     isClick = false;
-    // EEPROM.update(SETTINGS_ADDR_FLOW_WARNING, flowWarning);
     writeSettings();
   }
 
@@ -489,7 +508,6 @@ void loop()
   {
     mode = MODE_MAIN_SCREEN;
     isClick = false;
-    // EEPROM.update(SETTINGS_ADDR_FLOW_ALARM, flowAlarm);
     writeSettings();
   }
 
