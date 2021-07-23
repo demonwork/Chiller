@@ -5,6 +5,7 @@
 #include <DallasTemperature.h>
 #include <Wire.h>
 #include <GyverButton.h>
+#include <EEPROM.h>
 
 // Дисплей Nokia 5110
 //  LCD Nokia 5110 ARDUINO
@@ -46,8 +47,8 @@ unsigned long timeLoopAlarm; // Время для таймера моргающ�
 const int waterFlowPin = 2;  // пин датчика воды
 
 float temp;        // переменная температуры
-int setTemp = 30;  // значение предустановленной критичной температуры
-int setFlow = 100; // значение предустановленного критическго потока
+int setTemp;  // значение предустановленной критичной температуры
+int setFlow; // значение предустановленного критическго потока
                    // Переменные потока датчика воды
 volatile uint16_t pulse_frequency;
 uint8_t litersPerHour, litersPerMinute;
@@ -61,6 +62,9 @@ GButton button(pinButton);
 #define MODE_SET_FLOW 3
 uint8_t mode = MODE_MAIN_SCREEN;
 
+#define SETTINGS_ADDR_TEMP 0
+#define SETTINGS_ADDR_FLOW 1
+
 /**
  *  функция полученя данных с датчика потока, работает по прерыванию
  */
@@ -72,7 +76,7 @@ void waterFlowInterruptHandler()
 /**
  * Функция вывода на экран
  */
-int displayShow(int f, float t)
+int displayMainScreen(int f, float t)
 {
 
   display.drawBitmap(0, 0, heatImg, 24, 20, 1);
@@ -154,95 +158,93 @@ int displayAlarm(int errorcode, int f, int t)
   return 0;
 }
 
-/**
- * Данная функция по работе с меню установки температуры
- */
-int menuSet()
+void displaySetTemp()
 {
-  switch (mode)
-  {
-  case MODE_SET_TEMP:
-    // зажигает подсветку.
-    digitalWrite(10, LOW);
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.setCursor(0, 0);
-    display.println("> Set temp [T]");
-    display.setTextSize(2);
-    display.setCursor(5, 15);
-    display.print("<-");
-    display.print(setTemp, DEC);
-    display.print("+>");
-    display.setTextSize(1);
-    display.setCursor(0, 40);
-    display.println("Hold to next");
-    display.display();
+  // зажигает подсветку.
+  digitalWrite(10, LOW);
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+  display.println("> Set temp [T]");
+  display.setTextSize(2);
+  display.setCursor(5, 15);
+  display.print("<-");
+  display.print(setTemp, DEC);
+  display.print("+>");
+  display.setTextSize(1);
+  display.setCursor(0, 40);
+  display.println("Click to save");
+  display.display();
+}
 
-    break;
-  case MODE_SET_FLOW:
-    // зажигает подсветку.
-    digitalWrite(10, LOW);
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.setCursor(0, 0);
-    display.println("> Set flow [F]");
-    display.setTextSize(2);
-    display.setCursor(0, 15);
-    display.print("<-");
-    display.print(setFlow, DEC);
-    display.print("+>");
-    display.setTextSize(1);
-    display.setCursor(0, 40);
-    display.println("Hold to save");
-    display.display();
+void displaySetFlow()
+{
+  // зажигает подсветку.
+  digitalWrite(10, LOW);
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+  display.println("> Set flow [F]");
+  display.setTextSize(2);
+  display.setCursor(0, 15);
+  display.print("<-");
+  display.print(setFlow, DEC);
+  display.print("+>");
+  display.setTextSize(1);
+  display.setCursor(0, 40);
+  display.println("Click to save");
+  display.display();
+}
 
-    break;
-  default:
-    break;
-  }
-
+void readJoystickTemp()
+{
   // Обработка событий джойстика
   if (analogRead(pinVRY) > 1000)
   {
     // Если стик вправо то ++
-    switch (mode)
-    {
-    case MODE_SET_TEMP:
-      setTemp++;
-      delay(200);
-      break;
-
-    case MODE_SET_FLOW:
-      setFlow++;
-      delay(200);
-      break;
-
-    default:
-      break;
-    }
+    setTemp++;
+    delay(200);
   }
 
   if (analogRead(pinVRY) < 400)
   {
     // Если стик влево то --
-    switch (mode)
-    {
-    case MODE_SET_TEMP:
-      setTemp--;
-      delay(200);
-      break;
+    setTemp--;
+    delay(200);
+  }
+}
 
-    case MODE_SET_FLOW:
-      setFlow--;
-      delay(200);
-      break;
-
-    default:
-      break;
-    }
+void readJoystickFlow()
+{
+  // Обработка событий джойстика
+  if (analogRead(pinVRY) > 1000)
+  {
+    // Если стик вправо то ++
+    setFlow++;
+    delay(200);
   }
 
-  return 0;
+  if (analogRead(pinVRY) < 400)
+  {
+    // Если стик влево то --
+    setFlow--;
+    delay(200);
+  }
+}
+
+void readJoystickMainScreen()
+{
+  if (analogRead(pinVRX) > 1000)
+  {
+    // зажигает подсветку.
+    digitalWrite(10, LOW);
+  }
+
+  if (analogRead(pinVRX) < 400)
+  {
+    // зажигает подсветку.
+    digitalWrite(10, HIGH);
+  }
 }
 
 /**
@@ -275,7 +277,7 @@ int rootSys()
     if (temp < setTemp)
     {
       // Отправляем данные на экран с текущими показателями.
-      displayShow(litersPerHour, temp);
+      displayMainScreen(litersPerHour, temp);
     }
   }
 
@@ -318,6 +320,13 @@ void setup()
 
   button.setTickMode(AUTO);
 
+  uint8_t settings = 0;
+  settings = EEPROM.read(SETTINGS_ADDR_TEMP);
+  setTemp = settings == 0 ? 30 : settings;
+
+  settings = EEPROM.read(SETTINGS_ADDR_FLOW);
+  setFlow = settings == 0 ? 100 : settings;
+
   // Пищим при запуске.
   tone(pizoPin, 400, 300);
   delay(300);
@@ -339,6 +348,7 @@ void loop()
   {
     mode = MODE_SET_FLOW;
     isClick = false;
+    EEPROM.update(SETTINGS_ADDR_TEMP, setTemp);
     display.clearDisplay();
   }
 
@@ -346,29 +356,23 @@ void loop()
   {
     mode = MODE_MAIN_SCREEN;
     isClick = false;
+    EEPROM.update(SETTINGS_ADDR_FLOW, setFlow);
     display.clearDisplay();
   }
 
   switch (mode)
   {
   case MODE_MAIN_SCREEN:
+    readJoystickMainScreen();
     rootSys();
     break;
   case MODE_SET_TEMP:
-  case MODE_SET_FLOW:
-    menuSet();
+    readJoystickTemp();
+    displaySetTemp();
     break;
-  }
-
-  if (analogRead(pinVRX) > 1000)
-  {
-    // зажигает подсветку.
-    digitalWrite(10, LOW);
-  }
-
-  if (analogRead(pinVRX) < 400)
-  {
-    // зажигает подсветку.
-    digitalWrite(10, HIGH);
+  case MODE_SET_FLOW:
+    readJoystickFlow();
+    displaySetFlow();
+    break;
   }
 }
