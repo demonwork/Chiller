@@ -4,6 +4,7 @@
 #include "images.h"
 #include <DallasTemperature.h>
 #include <Wire.h>
+#include <GyverButton.h>
 
 // Дисплей Nokia 5110
 //  LCD Nokia 5110 ARDUINO
@@ -32,30 +33,19 @@
 // период между измерениями температуры и потока в милисекундах
 #define MEASURE_PERIOD_LENGTH 1000
 
+// пин датчика температуры DS
 #define ONE_WIRE_BUS 9
-OneWire oneWire(ONE_WIRE_BUS);            // пин датчика температуры DS
+OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
 DeviceAddress waterThermometerAddr;
 int TEMPERATURE_PRECISION = 9;
 
 Adafruit_PCD8544 display = Adafruit_PCD8544(LCD_CLK, LCD_DIN, LCD_DC, LCD_CE, LCD_RST);
 
-bool button_state = false; // состояние кнопки
-int valButton;             // счётчик удержания кнопки ++
-long timeButton = 2000;    // установленно в 2000 фактически 2сек.
-uint32_t ms_button = 0;    // Время нажатия кнопки для устранения антидребезга
-
-int valButtonSub;          // счётчик нажатия кнопки ++
-long timeButtonSub = 3;    // установленно в 3 фактиечески 3мс.
-uint32_t ms_buttonSub = 0; // Время нажатия кнопки для устранения антидребезга
-bool buttonStateSub = false;
-
 unsigned long timeLoopAlarm; // Время для таймера моргающего экраном аларма
-const int waterFlowPin = 2; // пин датчика воды
+const int waterFlowPin = 2;  // пин датчика воды
 
-short int flagMenu = 0; // флаг меню, по этому флагу понимаем в какое меню попадаем 0 - Temp, 1 = Flow.
-
-float temp;          // переменная температуры
+float temp;        // переменная температуры
 int setTemp = 30;  // значение предустановленной критичной температуры
 int setFlow = 100; // значение предустановленного критическго потока
                    // Переменные потока датчика воды
@@ -64,6 +54,12 @@ uint8_t litersPerHour, litersPerMinute;
 uint64_t currentTime;
 uint16_t measuredPeriod, currentTimePrev;
 uint8_t waterFlowInterruptNumber = 0;
+
+GButton button(pinButton);
+#define MODE_MAIN_SCREEN 0
+#define MODE_SET_TEMP 2
+#define MODE_SET_FLOW 3
+uint8_t mode = MODE_MAIN_SCREEN;
 
 /**
  *  функция полученя данных с датчика потока, работает по прерыванию
@@ -163,10 +159,9 @@ int displayAlarm(int errorcode, int f, int t)
  */
 int menuSet()
 {
-
-  switch (flagMenu)
+  switch (mode)
   {
-  case 0:
+  case MODE_SET_TEMP:
     // зажигает подсветку.
     digitalWrite(10, LOW);
     display.clearDisplay();
@@ -184,7 +179,7 @@ int menuSet()
     display.display();
 
     break;
-  case 1:
+  case MODE_SET_FLOW:
     // зажигает подсветку.
     digitalWrite(10, LOW);
     display.clearDisplay();
@@ -206,62 +201,20 @@ int menuSet()
     break;
   }
 
-  // Обработка событий кноки
-
-  if (digitalRead(pinButton) == LOW)
-  {
-    // считаем каждую миллисекунду и инкрементируем valButtonSub
-    if (millis() - ms_buttonSub >= 1)
-    {
-      ms_buttonSub = millis();
-      valButtonSub++;
-    }
-  }
-  // Если кнопка отпущена, то сбрасываем valButtonSub считая, что это  дребезг или не нажатие.
-  else
-  {
-    valButtonSub = 0;
-  }
-
-  // Кнопка нажата и проверяем значение valButtonSub, если оно совпадает с длительностью *timeButton то выполняем действие
-  if (valButtonSub >= timeButtonSub)
-  {
-    // ставим, что кнопка нажата и удержана в сабменю.
-    buttonStateSub = true;
-
-    // Данное для выхода из сабменю если кнопка нажата дольше.
-    if (valButtonSub >= 150 && flagMenu == 0)
-    {
-
-      valButtonSub = 0;
-      display.clearDisplay();
-      flagMenu = 1;
-    }
-
-    if (valButtonSub >= 150 && flagMenu == 1)
-    {
-
-      valButtonSub = 0;
-      display.clearDisplay();
-      flagMenu = 0;
-      button_state = false;
-    }
-  }
-
   // Обработка событий джойстика
   if (analogRead(pinVRY) > 1000)
   {
     // Если стик вправо то ++
-    switch (flagMenu)
+    switch (mode)
     {
-    case 0:
+    case MODE_SET_TEMP:
       setTemp++;
-      delay(500);
+      delay(200);
       break;
 
-    case 1:
+    case MODE_SET_FLOW:
       setFlow++;
-      delay(500);
+      delay(200);
       break;
 
     default:
@@ -272,16 +225,16 @@ int menuSet()
   if (analogRead(pinVRY) < 400)
   {
     // Если стик влево то --
-    switch (flagMenu)
+    switch (mode)
     {
-    case 0:
+    case MODE_SET_TEMP:
       setTemp--;
-      delay(500);
+      delay(200);
       break;
 
-    case 1:
+    case MODE_SET_FLOW:
       setFlow--;
-      delay(500);
+      delay(200);
       break;
 
     default:
@@ -301,8 +254,6 @@ int rootSys()
   measuredPeriod = currentTime - currentTimePrev;
   if (measuredPeriod >= MEASURE_PERIOD_LENGTH)
   {
-    Serial.print("measuredPeriod = ");
-    Serial.println(measuredPeriod);
     currentTimePrev = currentTime;
     litersPerMinute = (pulse_frequency / (measuredPeriod / MEASURE_PERIOD_LENGTH)) / 7.5f;
     litersPerHour = litersPerMinute * 60;
@@ -326,13 +277,8 @@ int rootSys()
       // Отправляем данные на экран с текущими показателями.
       displayShow(litersPerHour, temp);
     }
-
-    // Вынес в loop
-    // if (button_state && (temp < setTemp)) {
-    //   menuSet();
-    // }
   }
-delay(500);
+
   return 0;
 }
 
@@ -370,53 +316,48 @@ void setup()
   pinMode(10, OUTPUT);
   // digitalWrite(10, LOW);
 
+  button.setTickMode(AUTO);
+
   // Пищим при запуске.
   tone(pizoPin, 400, 300);
   delay(300);
   tone(pizoPin, 800, 300);
   delay(300);
   tone(pizoPin, 1500, 300);
-
-  pinMode(pinButton, INPUT);
 }
 
 void loop()
 {
-  // Кнопка
-  // Если кнопка нажата
-  if (digitalRead(pinButton) == LOW && !button_state)
+  bool isClick = button.isClick();
+  if (mode == MODE_MAIN_SCREEN && isClick)
   {
-    // считаем каждую миллисекунду и инкрементируем valButton
-    if (millis() - ms_button >= 1)
-    {
-      ms_button = millis();
-      valButton++;
-    }
-  }
-  else
-  {
-    // данный кусок сработает если кнопка будет в LOW и сбрсит valButton
-    valButton = 0;
+    mode = MODE_SET_TEMP;
+    isClick = false;
   }
 
-  // пока кнопка нажата, проверяем значение valButton и если оно совпадает с длительностью timeButton то выполняем действие
-  // timeButton это и есть то самое значение задержки удержания кнопки
-  if (valButton >= timeButton && !button_state)
+  if (mode == MODE_SET_TEMP && isClick)
   {
-    // digitalWrite(10, (!digitalRead(10))); //зажигает подсветку.
-    button_state = true;
-    valButton = 0;
+    mode = MODE_SET_FLOW;
+    isClick = false;
+    display.clearDisplay();
   }
 
-  // Если кнопка не нажата была, то вертим показания на дисплей rootSys, но если дисплей, то тольк работаем в меню, иначе
-  // задержка на работу раз в сек в rootSys тормозит работу кнопок.
-  if (button_state /*&& (temp < setTemp)*/)
+  if (mode == MODE_SET_FLOW && isClick)
   {
-    menuSet();
+    mode = MODE_MAIN_SCREEN;
+    isClick = false;
+    display.clearDisplay();
   }
-  else
+
+  switch (mode)
   {
+  case MODE_MAIN_SCREEN:
     rootSys();
+    break;
+  case MODE_SET_TEMP:
+  case MODE_SET_FLOW:
+    menuSet();
+    break;
   }
 
   if (analogRead(pinVRX) > 1000)
@@ -429,5 +370,5 @@ void loop()
   {
     // зажигает подсветку.
     digitalWrite(10, HIGH);
-  }  
+  }
 }
