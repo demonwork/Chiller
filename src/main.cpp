@@ -53,7 +53,7 @@
 #define LCD_CLK 7
 
 #define pinButton 11 // пин кнопки
-#define pinVRX A0    // Джойстик Х
+#define pinVRX A0    // Джойстик X
 #define pinVRY A1    // Джойстик Y
 #define pizoPin 8    // пин зумера
 
@@ -165,17 +165,35 @@ int displayMainScreen()
 
 void soundSiren()
 {
-  for (int i = 700; i < 800; i++)
+  static bool up = true;
+  static uint16_t i = 700;
+  if (up)
   {
-    tone(pizoPin, i);
-    delay(15);
-  }
+    if (i < 800)
+    {
+      tone(pizoPin, i);
+      delay(15);
+      i++;
+    }
 
-  digitalWrite(10, HIGH);
-  for (int i = 800; i > 700; i--)
+    if (i == 800)
+    {
+      up = false;
+    }
+  }
+  else
   {
-    tone(pizoPin, i);
-    delay(15);
+    if (i > 700)
+    {
+      tone(pizoPin, i);
+      delay(15);
+      i--;
+    }
+
+    if (i == 700)
+    {
+      up = true;
+    }
   }
 }
 
@@ -227,27 +245,21 @@ void displayAlarm()
   switch (event)
   {
   case eventTempWarning:
-    // soundSiren();
     drawAlerInfo("CHECK TEMP!", "STOP WORK NOW!", round(temp), 0);
     break;
 
   case eventTempAlarm:
-    // soundSiren();
     drawAlerInfo("HIGH TEMP!", "WORK STOPPED!", round(temp), 0);
     break;
 
   case eventFlowWarning:
-    // soundSiren();
     drawAlerInfo("CHECK FLOW!", "STOP WORK NOW!", litersPerHour, 1);
     break;
 
   case eventFlowAlarm:
-    // soundSiren();
     drawAlerInfo("LOW FLOW!", "WORK STOPPED!", litersPerHour, 1);
     break;
   }
-
-  soundSiren();
 }
 
 void displaySetValue(const char *title, uint8_t value)
@@ -481,6 +493,7 @@ void loop()
   {
     mode = MODE_SET_TEMP_WARNING;
     isClick = false;
+    noTone(pizoPin);
   }
 
   if (mode == MODE_SET_TEMP_WARNING && isClick)
@@ -516,6 +529,10 @@ void loop()
 
   // если значения датчиков выше заданных, устанавливаем соответствующее событие
   setEvent();
+
+  if (event != eventNone) {
+    soundSiren();
+  }
 
   // отрисовываем экран в зависимости от режима в котором находится устройство
   switch (mode)
