@@ -25,11 +25,6 @@
  * - Так как "нормальный" звук можно получить только через delay(), моргание экраном реализовано не прозрачно.
  * Один цикл сирены это 3 секунды, в "разрыве" 1,5 секунды сейчас гасится экран.
  * Нужно реализовать таймер, в котором будет "гасится" экран.
- * - Из за множества задержек, в меньшей степени на экранах настройки, в большей степени в аварийных режимах,
- * не срабатывает ручной опрос кнопки.
- * Опрос кнопки нужно реализовать через таймер.
- * 
- * Возможно удастся объеденить решение обоих проблем в одном таймере.
  */
 
 // Дисплей Nokia 5110
@@ -52,8 +47,8 @@
 #define LCD_CLK 7
 
 #define pinButton 11 // пин кнопки
-#define pinVRX A0    // Джойстик X
-#define pinVRY A1    // Джойстик Y
+#define pinVRY A0    // Джойстик Y
+#define pinVRX A1    // Джойстик X
 #define pizoPin 8    // пин зумера
 
 // период между измерениями температуры и потока в милисекундах
@@ -90,6 +85,11 @@ uint16_t measuredPeriod, currentTimePrev;
 uint8_t waterFlowInterruptNumber = 0;
 
 GButton button(pinButton);
+GButton buttonUp;
+GButton buttonDown;
+GButton buttonLeft;
+GButton buttonRight;
+
 #define MODE_MAIN_SCREEN 0
 #define MODE_SET_TEMP_WARNING 1
 #define MODE_SET_TEMP_ALARM 2
@@ -297,32 +297,44 @@ void displaySetValue(const char *title, uint8_t value)
 void readJoystickValue(uint8_t *value)
 {
   // Обработка событий джойстика
-  if (analogRead(pinVRY) > 1000)
+  if (buttonRight.isClick())
   {
     // Если стик вправо то ++
     (*value)++;
-    delay(200);
     isRedraw = true;
   }
 
-  if (analogRead(pinVRY) < 400)
+  if (buttonRight.isStep())
+  {
+    // Если стик вправо то ++
+    (*value)++;
+    isRedraw = true;
+  }
+
+  if (buttonLeft.isClick())
   {
     // Если стик влево то --
     (*value)--;
-    delay(200);
+    isRedraw = true;
+  }
+
+  if (buttonLeft.isStep())
+  {
+    // Если стик влево то --
+    (*value)--;
     isRedraw = true;
   }
 }
 
 void readJoystickMainScreen()
 {
-  if (analogRead(pinVRX) > 1000)
+  if (buttonUp.isClick())
   {
     // зажигает подсветку.
     digitalWrite(10, LOW);
   }
 
-  if (analogRead(pinVRX) < 400)
+  if (buttonDown.isClick())
   {
     // зажигает подсветку.
     digitalWrite(10, HIGH);
@@ -489,6 +501,18 @@ void setup()
 
   button.setTickMode(AUTO);
 
+  buttonLeft.setTickMode(MANUAL);
+  buttonLeft.setStepTimeout(200);
+
+  buttonRight.setTickMode(MANUAL);
+  buttonRight.setStepTimeout(200);
+
+  buttonUp.setTickMode(MANUAL);
+  buttonUp.setStepTimeout(200);
+
+  buttonDown.setTickMode(MANUAL);
+  buttonDown.setStepTimeout(200);
+
   if (!readSettings())
   {
 
@@ -509,9 +533,23 @@ void setup()
   noTone(pizoPin);
 }
 
+void readAnalogButton()
+{
+  int analogX = analogRead(pinVRX);
+  int analogY = analogRead(pinVRY);
+
+  buttonUp.tick(analogY > 1000);
+  buttonDown.tick(analogY < 400);
+  buttonRight.tick(analogX > 1000);
+  buttonLeft.tick(analogX < 400);
+}
+
 void loop()
 {
   bool isClick = button.isClick();
+
+  readAnalogButton();
+
   if (mode == MODE_MAIN_SCREEN && isClick)
   {
     mode = MODE_SET_TEMP_WARNING;
