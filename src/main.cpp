@@ -118,6 +118,21 @@ uint8_t event = eventNone;
 
 bool isRedraw = true;
 
+void startTimeOut(uint8_t seconds)
+{
+  int mss = millis();
+  for (uint8_t i = 0; i < seconds; i++)
+  {
+    display.clearDisplay();
+    display.setTextSize(3);
+    display.println(seconds - i);
+    display.display();
+    while((millis() - mss) < 1000) {
+    }
+    mss = millis();
+  }
+}
+
 /**
  *  функция полученя данных с датчика потока, работает по прерыванию
  */
@@ -425,7 +440,7 @@ void setEvent()
   bool isTempAlaram = integerTemp >= tempAlarm;
   bool isFlowWarning = litersPerHour > flowAlarm && litersPerHour <= flowWarning;
   bool isFlowAlarm = litersPerHour <= flowAlarm;
-  
+
   if (isTempAlaram)
   {
     event = eventTempAlarm;
@@ -572,6 +587,9 @@ void setup()
   tone(pizoPin, 1500);
   delay(300);
   noTone(pizoPin);
+
+  // задержка перед стартом
+  startTimeOut(5);
 }
 
 void readAnalogButton()
@@ -647,7 +665,7 @@ void loop()
   case eventFlowAlarm:
     soundSiren();
     break;
-    default:
+  default:
     noTone(pizoPin);
     break;
   }
