@@ -15,7 +15,6 @@
  * - Экран маленький, вывод текущих значений датчиков по очереди
  * - Экран маленький, вывод опасных/критических значений по очереди
  * - Показывать десятые доли температуры
- * - Для опасных событий звук попроще чем сирена
  * - В аварийных ситуациях при мигании, вместо пустого экрана, показывать например крест
  * - В опасных ситуациях при мигании, вместо пустого экрана, показывать например !
  */
@@ -162,6 +161,41 @@ void displayMainScreen()
   display.display();
 
   isRedraw = false;
+}
+
+void soundBeep()
+{
+  static bool up = true;
+  static uint16_t i = 700;
+  if (up)
+  {
+    if (i < 800)
+    {
+      tone(pizoPin, 400);
+      delay(15);
+      i++;
+    }
+
+    if (i == 800)
+    {
+      up = false;
+      noTone(pizoPin);
+    }
+  }
+  else
+  {
+    if (i > 700)
+    {
+      // tone(pizoPin, i);
+      delay(15);
+      i--;
+    }
+
+    if (i == 700)
+    {
+      up = true;
+    }
+  }
 }
 
 void soundSiren()
@@ -371,7 +405,7 @@ void getMeasures()
     tmpTemp = sensors.getTempC(waterThermometerAddr);
 
 #ifdef DEBUG
-    tmpTemp = 19;
+    // tmpTemp = 19;
 #endif
 
     if (tmpTemp != temp)
@@ -596,9 +630,19 @@ void loop()
   // если значения датчиков выше заданных, устанавливаем соответствующее событие
   setEvent();
 
-  if (event != eventNone)
+  switch (event)
   {
+  case eventTempWarning:
+  case eventFlowWarning:
+    soundBeep();
+    break;
+  case eventTempAlarm:
+  case eventFlowAlarm:
     soundSiren();
+    break;
+    default:
+    noTone(pizoPin);
+    break;
   }
 
   // отрисовываем экран в зависимости от режима в котором находится устройство
