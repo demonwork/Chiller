@@ -17,6 +17,8 @@
  * - Показывать десятые доли температуры
  * - В аварийных ситуациях при мигании, вместо пустого экрана, показывать например крест
  * - В опасных ситуациях при мигании, вместо пустого экрана, показывать например !
+ * - В ситуации когда и по температуре и по потоку сложилась опасная ситуация, показывать на экране
+ *   одновременно или по очереди сообщения по каждому событию.
  */
 
 /*
@@ -419,21 +421,26 @@ void getMeasures()
 void setEvent()
 {
   uint8_t integerTemp = round(temp);
-  if (integerTemp >= tempWarning && integerTemp < tempAlarm)
-  {
-    event = eventTempWarning;
-  }
-  else if (integerTemp >= tempAlarm)
+  bool isTempWarning = integerTemp >= tempWarning && integerTemp < tempAlarm;
+  bool isTempAlaram = integerTemp >= tempAlarm;
+  bool isFlowWarning = litersPerHour > flowAlarm && litersPerHour <= flowWarning;
+  bool isFlowAlarm = litersPerHour <= flowAlarm;
+  
+  if (isTempAlaram)
   {
     event = eventTempAlarm;
   }
-  else if (litersPerHour > flowAlarm && litersPerHour <= flowWarning)
-  {
-    event = eventFlowWarning;
-  }
-  else if (litersPerHour <= flowAlarm)
+  else if (isFlowAlarm)
   {
     event = eventFlowAlarm;
+  }
+  else if (isTempWarning)
+  {
+    event = eventTempWarning;
+  }
+  else if (isFlowWarning)
+  {
+    event = eventFlowWarning;
   }
   else
   {
