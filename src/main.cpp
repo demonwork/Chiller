@@ -12,7 +12,6 @@
  * TODO:
  * - Удобный интерфейс для настройки
  * - Выделить пин для реле, через которое будет "нажиматься" конопка аварийной остановки
- * - Рисовать на дисплее только когда нужно, не каждый раз в цикле
  * - Экран маленький, вывод текущих значений датчиков по очереди
  * - Экран маленький, вывод опасных/критических значений по очереди
  * - Показывать десятые доли температуры
@@ -116,6 +115,8 @@ enum events
 
 uint8_t event = eventNone;
 
+bool isRedraw = true;
+
 /**
  *  функция полученя данных с датчика потока, работает по прерыванию
  */
@@ -127,7 +128,7 @@ void waterFlowInterruptHandler()
 /**
  * Функция вывода на экран
  */
-int displayMainScreen()
+void displayMainScreen()
 {
   digitalWrite(10, LOW);
 
@@ -160,7 +161,7 @@ int displayMainScreen()
 
   display.display();
 
-  return 0;
+  isRedraw = false;
 }
 
 void soundSiren()
@@ -232,6 +233,8 @@ void drawAlerInfo(const char *title, const char *footer, uint8_t value, uint8_t 
   display.print(footer);
 
   display.display();
+
+  isRedraw = false;
 }
 
 /**
@@ -287,6 +290,8 @@ void displaySetValue(const char *title, uint8_t value)
   display.print("Click to save");
 
   display.display();
+
+  isRedraw = false;
 }
 
 void readJoystickValue(uint8_t *value)
@@ -297,6 +302,7 @@ void readJoystickValue(uint8_t *value)
     // Если стик вправо то ++
     (*value)++;
     delay(200);
+    isRedraw = true;
   }
 
   if (analogRead(pinVRY) < 400)
@@ -304,6 +310,7 @@ void readJoystickValue(uint8_t *value)
     // Если стик влево то --
     (*value)--;
     delay(200);
+    isRedraw = true;
   }
 }
 
@@ -327,23 +334,39 @@ void readJoystickMainScreen()
  */
 void getMeasures()
 {
+  int tmpTemp, tmpFlow;
   currentTime = millis();
   measuredPeriod = currentTime - currentTimePrev;
   if (measuredPeriod >= MEASURE_PERIOD_LENGTH)
   {
     currentTimePrev = currentTime;
     litersPerMinute = (pulse_frequency / (measuredPeriod / MEASURE_PERIOD_LENGTH)) / 7.5f;
-    litersPerHour = litersPerMinute * 60;
     pulse_frequency = 0;
+    tmpFlow = litersPerMinute * 60;
+
+#ifdef DEBUG
+    tmpFlow = 113;
+#endif
+
+    if (tmpFlow != litersPerHour)
+    {
+      litersPerHour = tmpFlow;
+      isRedraw = true;
+    }
 
     // дёргаем датчик температуры и забираем данные.
     sensors.requestTemperatures();
-    temp = sensors.getTempC(waterThermometerAddr);
+    tmpTemp = sensors.getTempC(waterThermometerAddr);
 
 #ifdef DEBUG
-    temp = 19;
-    litersPerHour = 113;
+    tmpTemp = 19;
 #endif
+
+    if (tmpTemp != temp)
+    {
+      temp = tmpTemp;
+      isRedraw = true;
+    }
   }
 }
 
@@ -493,6 +516,7 @@ void loop()
   {
     mode = MODE_SET_TEMP_WARNING;
     isClick = false;
+    isRedraw = true;
     noTone(pizoPin);
   }
 
@@ -500,6 +524,7 @@ void loop()
   {
     mode = MODE_SET_TEMP_ALARM;
     isClick = false;
+    isRedraw = true;
     writeSettings();
   }
 
@@ -507,6 +532,7 @@ void loop()
   {
     mode = MODE_SET_FLOW_WARNING;
     isClick = false;
+    isRedraw = true;
     writeSettings();
   }
 
@@ -514,6 +540,7 @@ void loop()
   {
     mode = MODE_SET_FLOW_ALARM;
     isClick = false;
+    isRedraw = true;
     writeSettings();
   }
 
@@ -521,6 +548,7 @@ void loop()
   {
     mode = MODE_MAIN_SCREEN;
     isClick = false;
+    isRedraw = true;
     writeSettings();
   }
 
@@ -530,7 +558,8 @@ void loop()
   // если значения датчиков выше заданных, устанавливаем соответствующее событие
   setEvent();
 
-  if (event != eventNone) {
+  if (event != eventNone)
+  {
     soundSiren();
   }
 
@@ -540,29 +569,48 @@ void loop()
   case MODE_MAIN_SCREEN:
     if (event == eventNone)
     {
-      displayMainScreen();
+      if (isRedraw)
+      {
+        displayMainScreen();
+      }
+
       readJoystickMainScreen();
     }
     else
     {
-      displayAlarm();
+      if (isRedraw)
+      {
+        displayAlarm();
+      }
     }
     break;
   case MODE_SET_TEMP_WARNING:
     readJoystickValue(&tempWarning);
-    displaySetValue("Set temp [TW]", tempWarning);
+    if (isRedraw)
+    {
+      displaySetValue("Set temp [TW]", tempWarning);
+    }
     break;
   case MODE_SET_TEMP_ALARM:
     readJoystickValue(&tempAlarm);
-    displaySetValue("Set temp [TA]", tempAlarm);
+    if (isRedraw)
+    {
+      displaySetValue("Set temp [TA]", tempAlarm);
+    }
     break;
   case MODE_SET_FLOW_WARNING:
     readJoystickValue(&flowWarning);
-    displaySetValue("Set flow [FW]", flowWarning);
+    if (isRedraw)
+    {
+      displaySetValue("Set flow [FW]", flowWarning);
+    }
     break;
   case MODE_SET_FLOW_ALARM:
     readJoystickValue(&flowAlarm);
-    displaySetValue("Set flow [FA]", flowAlarm);
+    if (isRedraw)
+    {
+      displaySetValue("Set flow [FA]", flowAlarm);
+    }
     break;
   }
 }
