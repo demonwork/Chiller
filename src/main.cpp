@@ -46,6 +46,7 @@
 #define LCD_DC 5
 #define LCD_DIN 6
 #define LCD_CLK 7
+#define BACKLIGHT 10
 
 #define pinButton 11 // пин кнопки
 #define pinVRY A0    // Джойстик Y
@@ -146,7 +147,7 @@ void waterFlowInterruptHandler()
  */
 void displayMainScreen()
 {
-  digitalWrite(10, LOW);
+  digitalWrite(BACKLIGHT, LOW);
 
   display.clearDisplay();
   display.drawBitmap(0, 0, heatImg, 24, 20, 1);
@@ -294,7 +295,7 @@ void drawAlerInfo(const char *title, const char *footer, uint8_t value, uint8_t 
 void displayAlarm()
 {
   // зажигает подсветку.
-  digitalWrite(10, LOW);
+  digitalWrite(BACKLIGHT, LOW);
 
   switch (event)
   {
@@ -321,7 +322,7 @@ void displaySetValue(const char *title, uint8_t value)
   display.clearDisplay();
 
   // зажигает подсветку.
-  digitalWrite(10, LOW);
+  digitalWrite(BACKLIGHT, LOW);
   display.clearDisplay();
   display.setTextSize(1);
   display.setCursor(0, 0);
@@ -382,13 +383,13 @@ void readJoystickMainScreen()
   if (buttonUp.isClick())
   {
     // зажигает подсветку.
-    digitalWrite(10, LOW);
+    digitalWrite(BACKLIGHT, LOW);
   }
 
   if (buttonDown.isClick())
   {
     // зажигает подсветку.
-    digitalWrite(10, HIGH);
+    digitalWrite(BACKLIGHT, HIGH);
   }
 }
 
@@ -552,8 +553,8 @@ void setup()
   // установка цвета текста
   display.setTextColor(BLACK);
   // подсветка экрана
-  pinMode(10, OUTPUT);
-  // digitalWrite(10, LOW);
+  pinMode(BACKLIGHT, OUTPUT);
+  // digitalWrite(BACKLIGHT, LOW);
 
   button.setTickMode(AUTO);
 
