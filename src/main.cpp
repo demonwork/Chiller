@@ -12,9 +12,6 @@
  * TODO:
  * - Удобный интерфейс для настройки
  * - Выделить пин для реле, через которое будет "нажиматься" конопка аварийной остановки
- * - Экран маленький, вывод текущих значений датчиков по очереди
- * - Экран маленький, вывод опасных/критических значений по очереди
- * - Показывать десятые доли температуры
  * - В аварийных ситуациях при мигании, вместо пустого экрана, показывать например крест
  * - В опасных ситуациях при мигании, вместо пустого экрана, показывать например !
  * - В ситуации когда и по температуре и по потоку сложилась опасная ситуация, показывать на экране
@@ -69,7 +66,7 @@ unsigned long timeLoopAlarm; // Время для таймера моргающ�
 const int waterFlowPin = 2;  // пин датчика воды
 
 // текущая температурв
-float temp;
+uint16_t temp;
 // значение опасно высокой температуры
 uint8_t tempWarning;
 // значение аварийно высокой температуры
@@ -92,12 +89,13 @@ GButton buttonDown;
 GButton buttonLeft;
 GButton buttonRight;
 
-#define MODE_MAIN_SCREEN 0
+#define MODE_MAIN_SCREEN_TEMP 0
 #define MODE_SET_TEMP_WARNING 1
 #define MODE_SET_TEMP_ALARM 2
 #define MODE_SET_FLOW_WARNING 3
 #define MODE_SET_FLOW_ALARM 4
-uint8_t mode = MODE_MAIN_SCREEN;
+#define MODE_MAIN_SCREEN_FLOW 5
+uint8_t mode = MODE_MAIN_SCREEN_TEMP;
 
 #define SETTINGS_ADDR_CRC_H 0
 #define SETTINGS_ADDR_CRC_L 1
@@ -128,7 +126,8 @@ void startTimeOut(uint8_t seconds)
     display.setTextSize(3);
     display.println(seconds - i);
     display.display();
-    while((millis() - mss) < 1000) {
+    while ((millis() - mss) < 1000)
+    {
     }
     mss = millis();
   }
@@ -143,44 +142,59 @@ void waterFlowInterruptHandler()
 }
 
 /**
- * Функция вывода на экран
+ * Показываем текущую температуру
  */
-void displayMainScreen()
+void displayMainScreenTemp()
 {
-  digitalWrite(BACKLIGHT, LOW);
-
   display.clearDisplay();
-  display.drawBitmap(0, 0, heatImg, 24, 20, 1);
+  display.drawBitmap(0, 3, heatImg, 16, 18, 1);
+  display.setTextSize(3);
   display.setTextSize(3);
   display.setCursor(26, 0);
-  display.println(round(temp));
-  display.setTextSize(1);
-  display.setCursor(63, 0);
-  display.println("o");
+  display.print(temp / 10);
   display.setTextSize(2);
-  display.setCursor(67, 7);
-  display.println("C");
-  //
-  // display.setTextSize(1);
-  display.drawBitmap(0, 22, flowImg, 24, 15, 1);
-  display.setTextSize(2);
-  display.setCursor(26, 22);
-  display.println(litersPerHour, DEC);
-  //
+  display.setCursor(59, 6);
+  display.print(".");
+  display.print(temp % 10);
   display.setTextSize(1);
-  display.setCursor(0, 40);
-  display.print("[T=");
-  display.print(tempAlarm);
-  display.print("]");
-  display.print("[F=");
-  display.print(flowAlarm);
-  display.print("]");
+  display.setCursor(0, 30);
+
+  display.print("W-limit: ");
+  display.println(tempWarning);
+  display.print("A-limit: ");
+  display.println(tempAlarm);
 
   display.display();
 
   isRedraw = false;
 }
 
+/**
+ * Показываем текущий поток охлаждающий жидкости
+ */
+void displayMainScreenFlow()
+{
+  display.clearDisplay();
+  display.drawBitmap(0, 3, flowImg, 24, 15, 1);
+  display.setTextSize(3);
+  display.setCursor(26, 0);
+  display.println(litersPerHour, DEC);
+  display.setTextSize(1);
+  display.setCursor(0, 30);
+
+  display.print("W-limit: ");
+  display.println(flowWarning);
+  display.print("A-limit: ");
+  display.println(flowAlarm);
+
+  display.display();
+
+  isRedraw = false;
+}
+
+/**
+ * Звук предупреждения о опасной ситуации
+ */
 void soundBeep()
 {
   static bool up = true;
@@ -216,6 +230,9 @@ void soundBeep()
   }
 }
 
+/**
+ * Звук предупреждения о аварии
+ */
 void soundSiren()
 {
   static bool up = true;
@@ -250,6 +267,9 @@ void soundSiren()
   }
 }
 
+/**
+ * Показываем информацию о опасной ситуации или аварии
+ */
 void drawAlerInfo(const char *title, const char *footer, uint8_t value, uint8_t mode)
 {
   display.clearDisplay();
@@ -300,11 +320,11 @@ void displayAlarm()
   switch (event)
   {
   case eventTempWarning:
-    drawAlerInfo("CHECK TEMP!", "STOP WORK NOW!", round(temp), 0);
+    drawAlerInfo("CHECK TEMP!", "STOP WORK NOW!", temp / 10, 0);
     break;
 
   case eventTempAlarm:
-    drawAlerInfo("HIGH TEMP!", "WORK STOPPED!", round(temp), 0);
+    drawAlerInfo("HIGH TEMP!", "WORK STOPPED!", temp / 10, 0);
     break;
 
   case eventFlowWarning:
@@ -320,9 +340,6 @@ void displayAlarm()
 void displaySetValue(const char *title, uint8_t value)
 {
   display.clearDisplay();
-
-  // зажигает подсветку.
-  digitalWrite(BACKLIGHT, LOW);
   display.clearDisplay();
   display.setTextSize(1);
   display.setCursor(0, 0);
@@ -398,7 +415,8 @@ void readJoystickMainScreen()
  */
 void getMeasures()
 {
-  int tmpTemp, tmpFlow;
+  uint16_t tmpTemp, tmpFlow;
+  float realTemp;
   currentTime = millis();
   measuredPeriod = currentTime - currentTimePrev;
   if (measuredPeriod >= MEASURE_PERIOD_LENGTH)
@@ -420,7 +438,8 @@ void getMeasures()
 
     // дёргаем датчик температуры и забираем данные.
     sensors.requestTemperatures();
-    tmpTemp = sensors.getTempC(waterThermometerAddr);
+    realTemp = sensors.getTempC(waterThermometerAddr);
+    tmpTemp = realTemp * 10;
 
 #ifdef DEBUG
     // tmpTemp = 19;
@@ -436,9 +455,8 @@ void getMeasures()
 
 void setEvent()
 {
-  uint8_t integerTemp = round(temp);
-  bool isTempWarning = integerTemp >= tempWarning && integerTemp < tempAlarm;
-  bool isTempAlaram = integerTemp >= tempAlarm;
+  bool isTempWarning = temp >= tempWarning * 10 && temp < tempAlarm * 10;
+  bool isTempAlaram = temp >= tempAlarm * 10;
   bool isFlowWarning = litersPerHour > flowAlarm && litersPerHour <= flowWarning;
   bool isFlowAlarm = litersPerHour <= flowAlarm;
 
@@ -475,19 +493,15 @@ bool readSettings()
   eepromCrc |= 0x00FF & EEPROM.read(SETTINGS_ADDR_CRC_L);
 
   settings = EEPROM.read(SETTINGS_ADDR_TEMP_WARNING);
-  // tempWarning = settings == 0 ? 20 : settings;
   tmpBuff[0] = tempWarning = settings;
 
   settings = EEPROM.read(SETTINGS_ADDR_TEMP_ALARM);
-  // tempAlarm = settings == 0 ? 30 : settings;
   tmpBuff[1] = tempAlarm = settings;
 
   settings = EEPROM.read(SETTINGS_ADDR_FLOW_WARNING);
-  // flowWarning = settings == 0 ? 100 : settings;
   tmpBuff[2] = flowWarning = settings;
 
   settings = EEPROM.read(SETTINGS_ADDR_FLOW_ALARM);
-  // flowAlarm = settings == 0 ? 90 : settings;
   tmpBuff[3] = flowAlarm = settings;
 
   FastCRC16 CRC16;
@@ -554,7 +568,7 @@ void setup()
   display.setTextColor(BLACK);
   // подсветка экрана
   pinMode(BACKLIGHT, OUTPUT);
-  // digitalWrite(BACKLIGHT, LOW);
+  digitalWrite(BACKLIGHT, LOW);
 
   button.setTickMode(AUTO);
 
@@ -607,10 +621,12 @@ void readAnalogButton()
 void loop()
 {
   bool isClick = button.isClick();
+  static uint64_t currentTime1;
+  static uint64_t prevTime1 = 0;
 
   readAnalogButton();
 
-  if (mode == MODE_MAIN_SCREEN && isClick)
+  if (mode == MODE_MAIN_SCREEN_TEMP && isClick)
   {
     mode = MODE_SET_TEMP_WARNING;
     isClick = false;
@@ -644,7 +660,7 @@ void loop()
 
   if (mode == MODE_SET_FLOW_ALARM && isClick)
   {
-    mode = MODE_MAIN_SCREEN;
+    mode = MODE_MAIN_SCREEN_TEMP;
     isClick = false;
     isRedraw = true;
     writeSettings();
@@ -671,15 +687,49 @@ void loop()
     break;
   }
 
+  currentTime1 = millis();
+
   // отрисовываем экран в зависимости от режима в котором находится устройство
   switch (mode)
   {
-  case MODE_MAIN_SCREEN:
+  case MODE_MAIN_SCREEN_TEMP:
     if (event == eventNone)
+    {
+      if (currentTime1 - prevTime1 > 3000)
+      {
+        prevTime1 = currentTime1;
+        mode = MODE_MAIN_SCREEN_FLOW;
+        isRedraw = true;
+      }
+
+      if (isRedraw)
+      {
+        displayMainScreenTemp();
+      }
+
+      readJoystickMainScreen();
+    }
+    else
     {
       if (isRedraw)
       {
-        displayMainScreen();
+        displayAlarm();
+      }
+    }
+    break;
+  case MODE_MAIN_SCREEN_FLOW:
+    if (event == eventNone)
+    {
+      if (currentTime1 - prevTime1 > 5000)
+      {
+        prevTime1 = currentTime1;
+        mode = MODE_MAIN_SCREEN_TEMP;
+        isRedraw = true;
+      }
+
+      if (isRedraw)
+      {
+        displayMainScreenFlow();
       }
 
       readJoystickMainScreen();
