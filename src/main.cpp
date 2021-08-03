@@ -12,17 +12,8 @@
  * TODO:
  * - Удобный интерфейс для настройки
  * - Выделить пин для реле, через которое будет "нажиматься" конопка аварийной остановки
- * - В аварийных ситуациях при мигании, вместо пустого экрана, показывать например крест
- * - В опасных ситуациях при мигании, вместо пустого экрана, показывать например !
  * - В ситуации когда и по температуре и по потоку сложилась опасная ситуация, показывать на экране
  *   одновременно или по очереди сообщения по каждому событию.
- */
-
-/*
- * FIXME:
- * - Так как "нормальный" звук можно получить только через delay(), моргание экраном реализовано не прозрачно.
- * Один цикл сирены это 3 секунды, в "разрыве" 1,5 секунды сейчас гасится экран.
- * Нужно реализовать таймер, в котором будет "гасится" экран.
  */
 
 // Дисплей Nokia 5110
@@ -97,6 +88,10 @@ GButton buttonRight;
 #define MODE_SET_FLOW_WARNING 3
 #define MODE_SET_FLOW_ALARM 4
 #define MODE_MAIN_SCREEN_FLOW 5
+#define MODE_TEMP_WARNING 6
+#define MODE_TEMP_ALARM 7
+#define MODE_FLOW_WARNING 8
+#define MODE_FLOW_ALARM 9
 uint8_t mode = MODE_MAIN_SCREEN_TEMP;
 
 #define SETTINGS_ADDR_CRC_H 0
@@ -148,9 +143,12 @@ void waterFlowInterruptHandler()
  */
 void displayMainScreenTemp()
 {
-  if (isBackLightOn) {
+  if (isBackLightOn)
+  {
     digitalWrite(BACKLIGHT, LOW);
-  } else {
+  }
+  else
+  {
     digitalWrite(BACKLIGHT, HIGH);
   }
 
@@ -182,9 +180,12 @@ void displayMainScreenTemp()
  */
 void displayMainScreenFlow()
 {
-  if (isBackLightOn) {
+  if (isBackLightOn)
+  {
     digitalWrite(BACKLIGHT, LOW);
-  } else {
+  }
+  else
+  {
     digitalWrite(BACKLIGHT, HIGH);
   }
 
@@ -328,9 +329,6 @@ void drawAlerInfo(const char *title, const char *footer, uint8_t value, uint8_t 
  */
 void displayAlarm()
 {
-  // зажигает подсветку.
-  digitalWrite(BACKLIGHT, LOW);
-
   switch (event)
   {
   case eventTempWarning:
@@ -353,7 +351,7 @@ void displayAlarm()
 
 void displaySetValue(const char *title, uint8_t value)
 {
-  // зажигает подсветку.
+  // зажигает подсветку
   digitalWrite(BACKLIGHT, LOW);
 
   display.clearDisplay();
@@ -482,23 +480,31 @@ void setEvent()
   if (isTempAlaram)
   {
     event = eventTempAlarm;
+    mode = MODE_TEMP_ALARM;
   }
   else if (isFlowAlarm)
   {
     event = eventFlowAlarm;
+    mode = MODE_FLOW_ALARM;
   }
   else if (isTempWarning)
   {
     event = eventTempWarning;
+    mode = MODE_TEMP_WARNING;
   }
   else if (isFlowWarning)
   {
     event = eventFlowWarning;
+    mode = MODE_FLOW_WARNING;
   }
   else
   {
-    event = eventNone;
-    noTone(pizoPin);
+    if (event != eventNone)
+    {
+      event = eventNone;
+      noTone(pizoPin);
+      mode = MODE_MAIN_SCREEN_TEMP;
+    }
   }
 }
 
@@ -643,10 +649,12 @@ void loop()
   bool isClick = button.isClick();
   static uint64_t currentTime1;
   static uint64_t prevTime1 = 0;
+  static uint64_t flashPrevTime = 0;
+  static bool flashState = true;
 
   readAnalogButton();
 
-  if (mode == MODE_MAIN_SCREEN_TEMP && isClick)
+  if ((mode == MODE_MAIN_SCREEN_TEMP || mode == MODE_MAIN_SCREEN_FLOW) && isClick)
   {
     mode = MODE_SET_TEMP_WARNING;
     isClick = false;
@@ -713,54 +721,34 @@ void loop()
   switch (mode)
   {
   case MODE_MAIN_SCREEN_TEMP:
-    if (event == eventNone)
+    if (currentTime1 - prevTime1 > 5000)
     {
-      if (currentTime1 - prevTime1 > 3000)
-      {
-        prevTime1 = currentTime1;
-        mode = MODE_MAIN_SCREEN_FLOW;
-        isRedraw = true;
-      }
-
-      if (isRedraw)
-      {
-        displayMainScreenTemp();
-      }
-
-      readJoystickMainScreen();
+      prevTime1 = currentTime1;
+      mode = MODE_MAIN_SCREEN_FLOW;
+      isRedraw = true;
     }
-    else
+
+    if (isRedraw)
     {
-      if (isRedraw)
-      {
-        displayAlarm();
-      }
+      displayMainScreenTemp();
     }
+
+    readJoystickMainScreen();
     break;
   case MODE_MAIN_SCREEN_FLOW:
-    if (event == eventNone)
+    if (currentTime1 - prevTime1 > 5000)
     {
-      if (currentTime1 - prevTime1 > 5000)
-      {
-        prevTime1 = currentTime1;
-        mode = MODE_MAIN_SCREEN_TEMP;
-        isRedraw = true;
-      }
-
-      if (isRedraw)
-      {
-        displayMainScreenFlow();
-      }
-
-      readJoystickMainScreen();
+      prevTime1 = currentTime1;
+      mode = MODE_MAIN_SCREEN_TEMP;
+      isRedraw = true;
     }
-    else
+
+    if (isRedraw)
     {
-      if (isRedraw)
-      {
-        displayAlarm();
-      }
+      displayMainScreenFlow();
     }
+
+    readJoystickMainScreen();
     break;
   case MODE_SET_TEMP_WARNING:
     readJoystickValue(&tempWarning);
@@ -789,6 +777,98 @@ void loop()
     {
       displaySetValue("Set flow [FA]", flowAlarm);
     }
+    break;
+  case MODE_TEMP_WARNING:
+    // моргаем подсветкой
+    if (currentTime1 - flashPrevTime > 2000)
+    {
+      flashPrevTime = currentTime1;
+      if (flashState)
+      {
+        digitalWrite(BACKLIGHT, LOW);
+      }
+      else
+      {
+        digitalWrite(BACKLIGHT, HIGH);
+      }
+
+      flashState = !flashState;
+    }
+
+    if (isRedraw)
+    {
+      displayAlarm();
+    }
+
+    break;
+  case MODE_TEMP_ALARM:
+    // моргаем подсветкой
+    if (currentTime1 - flashPrevTime > 500)
+    {
+      flashPrevTime = currentTime1;
+      if (flashState)
+      {
+        digitalWrite(BACKLIGHT, LOW);
+      }
+      else
+      {
+        digitalWrite(BACKLIGHT, HIGH);
+      }
+
+      flashState = !flashState;
+    }
+
+    if (isRedraw)
+    {
+      displayAlarm();
+    }
+
+    break;
+  case MODE_FLOW_WARNING:
+    // моргаем подсветкой
+    if (currentTime1 - flashPrevTime > 2000)
+    {
+      flashPrevTime = currentTime1;
+      if (flashState)
+      {
+        digitalWrite(BACKLIGHT, LOW);
+      }
+      else
+      {
+        digitalWrite(BACKLIGHT, HIGH);
+      }
+
+      flashState = !flashState;
+    }
+
+    if (isRedraw)
+    {
+      displayAlarm();
+    }
+
+    break;
+  case MODE_FLOW_ALARM:
+    // моргаем подсветкой
+    if (currentTime1 - flashPrevTime > 500)
+    {
+      flashPrevTime = currentTime1;
+      if (flashState)
+      {
+        digitalWrite(BACKLIGHT, LOW);
+      }
+      else
+      {
+        digitalWrite(BACKLIGHT, HIGH);
+      }
+
+      flashState = !flashState;
+    }
+
+    if (isRedraw)
+    {
+      displayAlarm();
+    }
+
     break;
   }
 }
