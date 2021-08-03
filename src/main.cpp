@@ -121,6 +121,7 @@ void startTimeOut(uint8_t seconds)
   {
     display.clearDisplay();
     display.setTextSize(3);
+    display.setCursor(40, 14);
     display.println(seconds - i);
     display.display();
     while ((millis() - mss) < 1000)
