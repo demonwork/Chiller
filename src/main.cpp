@@ -45,6 +45,8 @@
 #define LCD_CLK 7
 #define BACKLIGHT 10
 
+bool isBackLightOn;
+
 #define pinButton 11 // пин кнопки
 #define pinVRY A0    // Джойстик Y
 #define pinVRX A1    // Джойстик X
@@ -146,6 +148,12 @@ void waterFlowInterruptHandler()
  */
 void displayMainScreenTemp()
 {
+  if (isBackLightOn) {
+    digitalWrite(BACKLIGHT, LOW);
+  } else {
+    digitalWrite(BACKLIGHT, HIGH);
+  }
+
   display.clearDisplay();
   display.drawBitmap(0, 3, heatImg, 16, 18, 1);
   display.setTextSize(3);
@@ -174,6 +182,12 @@ void displayMainScreenTemp()
  */
 void displayMainScreenFlow()
 {
+  if (isBackLightOn) {
+    digitalWrite(BACKLIGHT, LOW);
+  } else {
+    digitalWrite(BACKLIGHT, HIGH);
+  }
+
   display.clearDisplay();
   display.drawBitmap(0, 3, flowImg, 24, 15, 1);
   display.setTextSize(3);
@@ -339,6 +353,9 @@ void displayAlarm()
 
 void displaySetValue(const char *title, uint8_t value)
 {
+  // зажигает подсветку.
+  digitalWrite(BACKLIGHT, LOW);
+
   display.clearDisplay();
   display.clearDisplay();
   display.setTextSize(1);
@@ -399,14 +416,16 @@ void readJoystickMainScreen()
 {
   if (buttonUp.isClick())
   {
-    // зажигает подсветку.
+    // зажигает подсветку
     digitalWrite(BACKLIGHT, LOW);
+    isBackLightOn = true;
   }
 
   if (buttonDown.isClick())
   {
-    // зажигает подсветку.
+    // гасит подсветку
     digitalWrite(BACKLIGHT, HIGH);
+    isBackLightOn = false;
   }
 }
 
@@ -569,6 +588,7 @@ void setup()
   // подсветка экрана
   pinMode(BACKLIGHT, OUTPUT);
   digitalWrite(BACKLIGHT, LOW);
+  isBackLightOn = true;
 
   button.setTickMode(AUTO);
 
