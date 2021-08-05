@@ -10,12 +10,10 @@
 /*
  * TODO:
  * - Удобный интерфейс для настройки
- * - Выделить пин для реле, через которое будет "нажиматься" конопка аварийной остановки
- * - Добавить настройку и обработку параметра "опрос датчика температуры", то же для датчика потока
  */
 
 /**
- *  функция полученя данных с датчика потока, работает по прерыванию
+ *  функция получения данных с датчика потока, работает по прерыванию
  */
 void waterFlowInterruptHandler()
 {
@@ -39,11 +37,11 @@ void displayAlarm()
 
     if (switchWarning)
     {
-      drawAlerInfo("CHECK TEMP!", "STOP WORK NOW!", temp / 10, 0);
+      drawAlertInfo("CHECK TEMP!", "STOP WORK NOW!", temp / 10, 0);
     }
     else
     {
-      drawAlerInfo("CHECK FLOW!", "STOP WORK NOW!", litersPerHour, 1);
+      drawAlertInfo("CHECK FLOW!", "STOP WORK NOW!", litersPerHour, 1);
     }
   }
   else
@@ -52,19 +50,19 @@ void displayAlarm()
     switch (event)
     {
     case eventTempWarning:
-      drawAlerInfo("CHECK TEMP!", "STOP WORK NOW!", temp / 10, 0);
+      drawAlertInfo("CHECK TEMP!", "STOP WORK NOW!", temp / 10, 0);
       break;
 
     case eventTempAlarm:
-      drawAlerInfo("HIGH TEMP!", "WORK STOPPED!", temp / 10, 0);
+      drawAlertInfo("HIGH TEMP!", "WORK STOPPED!", temp / 10, 0);
       break;
 
     case eventFlowWarning:
-      drawAlerInfo("CHECK FLOW!", "STOP WORK NOW!", litersPerHour, 1);
+      drawAlertInfo("CHECK FLOW!", "STOP WORK NOW!", litersPerHour, 1);
       break;
 
     case eventFlowAlarm:
-      drawAlerInfo("LOW FLOW!", "WORK STOPPED!", litersPerHour, 1);
+      drawAlertInfo("LOW FLOW!", "WORK STOPPED!", litersPerHour, 1);
       break;
     }
   }
@@ -118,14 +116,14 @@ void readJoystickMainScreen()
   if (buttonUp.isClick())
   {
     // зажигает подсветку
-    digitalWrite(BACKLIGHT, LOW);
+    digitalWrite(PIN_BACKLIGHT, LOW);
     isBackLightOn = true;
   }
 
   if (buttonDown.isClick())
   {
     // гасит подсветку
-    digitalWrite(BACKLIGHT, HIGH);
+    digitalWrite(PIN_BACKLIGHT, HIGH);
     isBackLightOn = false;
   }
 }
@@ -149,7 +147,7 @@ void getMeasures()
     tmpFlow = litersPerMinute * 60;
 
 #ifdef DEBUG
-    tmpFlow = 113;
+    // tmpFlow = 113;
 #endif
 
     if (tmpFlow != litersPerHour)
@@ -159,9 +157,8 @@ void getMeasures()
     }
 
     // дёргаем датчик температуры и забираем данные.
-    if (isTempUse)
+    if (sensors.getDS18Count() > 0)
     {
-      // TODO: реализовать проверку на наличие датчика!
       sensors.requestTemperatures();
       realTemp = sensors.getTempC(waterThermometerAddr);
       tmpTemp = realTemp * 10;
@@ -185,7 +182,7 @@ void getMeasures()
 
 void setEvent()
 {
-  if (isTempUse)
+  if (isTempUse && sensors.getDS18Count() > 0)
   {
     isTempWarning = temp >= tempWarning * 10 && temp < tempAlarm * 10;
     isTempAlarm = temp >= tempAlarm * 10;
@@ -210,10 +207,12 @@ void setEvent()
   if (isTempAlarm)
   {
     event = eventTempAlarm;
+    digitalWrite(PIN_EMERGENCY_STOP, HIGH);
   }
   else if (isFlowAlarm)
   {
     event = eventFlowAlarm;
+    digitalWrite(PIN_EMERGENCY_STOP, HIGH);
   }
   else if (isTempWarning)
   {
@@ -227,6 +226,22 @@ void setEvent()
   {
     event = eventNone;
     noTone(PIN_PIZO);
+    digitalWrite(PIN_EMERGENCY_STOP, LOW);
+  }
+}
+
+bool setupTempSensor()
+{
+  sensors.begin();
+  if (sensors.getDS18Count() > 0)
+  {
+    sensors.getAddress(waterThermometerAddr, 0);
+    sensors.setResolution(waterThermometerAddr, TEMPERATURE_PRECISION);
+    return true;
+  }
+  else
+  {
+    return false;
   }
 }
 
@@ -237,6 +252,9 @@ void setup()
 {
   Serial.begin(9600);
   Serial.println("Chiller start.");
+
+  digitalWrite(PIN_EMERGENCY_STOP, LOW);
+  pinMode(PIN_EMERGENCY_STOP, OUTPUT);
 
   if (!readSettings())
   {
@@ -252,13 +270,7 @@ void setup()
   }
 
   // инициализируем либу для работы с датчиками температуры
-  if (isTempUse)
-  {
-    sensors.begin();
-    // TODO: реализовать проверку на наличие датчика!
-    sensors.getAddress(waterThermometerAddr, 0);
-    sensors.setResolution(waterThermometerAddr, TEMPERATURE_PRECISION);
-  }
+  setupTempSensor();
 
   if (isFlowUse)
   {
@@ -268,8 +280,8 @@ void setup()
   }
 
   // подсветка экрана
-  pinMode(BACKLIGHT, OUTPUT);
-  digitalWrite(BACKLIGHT, LOW);
+  pinMode(PIN_BACKLIGHT, OUTPUT);
+  digitalWrite(PIN_BACKLIGHT, LOW);
   isBackLightOn = true;
 
   // LCD дисплей, инициализация и заставка
@@ -352,8 +364,11 @@ void loop()
 
     if (isTempUse)
     {
-      // TODO: реализовать инициализацию датчика!
-    } else {
+      // настройка сохранена, инициализируем датчик, если не удалось, в текущем сеансе "отключаем" его
+      setupTempSensor();
+    }
+    else
+    {
       // если датчик не используем, лимиты нет смысла настраивать
       mode = MODE_SET_FLOW_USE;
     }
@@ -381,8 +396,9 @@ void loop()
     isClick = false;
     isRedraw = true;
     writeSettings();
-    
-    if (!isFlowUse) {
+
+    if (!isFlowUse)
+    {
       // если датчик не используем, лимиты нет смысла настраивать
       mode = MODE_SET_SOUND_ENABLED;
     }

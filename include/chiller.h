@@ -19,7 +19,7 @@
 #define LCD_DC 5
 #define LCD_DIN 6
 #define LCD_CLK 7
-#define BACKLIGHT 10
+#define PIN_BACKLIGHT 10
 
 // пин кнопки
 #define PIN_BUTTON 11
@@ -34,6 +34,8 @@
 // пин датчика температуры DS
 #define ONE_WIRE_BUS 9
 #define TEMPERATURE_PRECISION 9
+// пин на котором будет установлена 1 при аварии
+#define PIN_EMERGENCY_STOP 12
 
 // период между измерениями температуры и потока в милисекундах
 #define MEASURE_PERIOD_LENGTH 1000

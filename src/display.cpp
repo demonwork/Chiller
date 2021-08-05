@@ -18,11 +18,11 @@ void restoreBackLight()
 {
   if (isBackLightOn)
   {
-    digitalWrite(BACKLIGHT, LOW);
+    digitalWrite(PIN_BACKLIGHT, LOW);
   }
   else
   {
-    digitalWrite(BACKLIGHT, HIGH);
+    digitalWrite(PIN_BACKLIGHT, HIGH);
   }
 }
 
@@ -84,7 +84,7 @@ void displayMainScreenFlow()
 /**
  * Показываем информацию о опасной ситуации или аварии
  */
-void drawAlerInfo(const char *title, const char *footer, uint8_t value, uint8_t mode)
+void drawAlertInfo(const char *title, const char *footer, uint8_t value, uint8_t mode)
 {
   display.clearDisplay();
 
@@ -129,7 +129,7 @@ void drawAlerInfo(const char *title, const char *footer, uint8_t value, uint8_t 
 void displaySetValue(const char *title, uint8_t value)
 {
   // зажигает подсветку
-  digitalWrite(BACKLIGHT, LOW);
+  digitalWrite(PIN_BACKLIGHT, LOW);
 
   display.clearDisplay();
   display.clearDisplay();
@@ -161,7 +161,7 @@ void displaySetValue(const char *title, uint8_t value)
 void displaySetUseValue(const char *title, bool value)
 {
   // зажигает подсветку
-  digitalWrite(BACKLIGHT, LOW);
+  digitalWrite(PIN_BACKLIGHT, LOW);
 
   display.clearDisplay();
   display.clearDisplay();
@@ -206,11 +206,11 @@ void flashBacklight()
 
     if (flashState)
     {
-        digitalWrite(BACKLIGHT, LOW);
+        digitalWrite(PIN_BACKLIGHT, LOW);
     }
     else
     {
-        digitalWrite(BACKLIGHT, HIGH);
+        digitalWrite(PIN_BACKLIGHT, HIGH);
     }
 
     flashState = !flashState;
