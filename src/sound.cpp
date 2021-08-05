@@ -3,11 +3,18 @@
 #include "sound.h"
 #include "chiller.h"
 
+extern bool isSoundEnabled;
+
 /**
  * Звук предупреждения о опасной ситуации
  */
 void soundBeep()
 {
+  if (!isSoundEnabled) {
+    noTone(PIN_PIZO);
+    return;
+  }
+
   static bool up = true;
   static uint16_t i = 700;
   if (up)
@@ -46,6 +53,11 @@ void soundBeep()
  */
 void soundSiren()
 {
+  if (!isSoundEnabled) {
+    noTone(PIN_PIZO);
+    return;
+  }
+
   static bool up = true;
   static uint16_t i = 700;
   if (up)

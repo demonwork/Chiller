@@ -122,6 +122,7 @@ void drawAlerInfo(const char *title, const char *footer, uint8_t value, uint8_t 
 
   isRedraw = false;
 }
+
 /**
  * Показывает экран с настройкой значения
  */
@@ -145,6 +146,31 @@ void displaySetValue(const char *title, uint8_t value)
   }
 
   display.print("+");
+  display.setTextSize(1);
+  display.setCursor(0, 40);
+  display.print("Click to save");
+
+  display.display();
+
+  isRedraw = false;
+}
+
+/**
+ * Показывает экран с настройкой значения вкл/выкл
+ */
+void displaySetUseValue(const char *title, bool value)
+{
+  // зажигает подсветку
+  digitalWrite(BACKLIGHT, LOW);
+
+  display.clearDisplay();
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+  display.print(title);
+  display.setTextSize(2);
+  display.setCursor(5, 15);
+  display.print(value == true ? "On" : "Off" );
   display.setTextSize(1);
   display.setCursor(0, 40);
   display.print("Click to save");

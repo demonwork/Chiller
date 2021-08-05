@@ -102,6 +102,17 @@ void readJoystickValue(uint8_t *value)
   }
 }
 
+void readJoystickUseValue(bool *value)
+{
+  // Обработка событий джойстика
+  if (buttonRight.isClick() || buttonLeft.isClick())
+  {
+    // в любую сторону меняем знаяение на противоположное
+    (*value) = !(*value);
+    isRedraw = true;
+  }
+}
+
 void readJoystickMainScreen()
 {
   if (buttonUp.isClick())
@@ -148,9 +159,17 @@ void getMeasures()
     }
 
     // дёргаем датчик температуры и забираем данные.
-    sensors.requestTemperatures();
-    realTemp = sensors.getTempC(waterThermometerAddr);
-    tmpTemp = realTemp * 10;
+    if (isTempUse)
+    {
+      // TODO: реализовать проверку на наличие датчика!
+      sensors.requestTemperatures();
+      realTemp = sensors.getTempC(waterThermometerAddr);
+      tmpTemp = realTemp * 10;
+    }
+    else
+    {
+      tmpTemp = 0;
+    }
 
 #ifdef DEBUG
     // tmpTemp = 19;
@@ -166,10 +185,27 @@ void getMeasures()
 
 void setEvent()
 {
-  isTempWarning = temp >= tempWarning * 10 && temp < tempAlarm * 10;
-  isTempAlarm = temp >= tempAlarm * 10;
-  isFlowWarning = litersPerHour > flowAlarm && litersPerHour <= flowWarning;
-  isFlowAlarm = litersPerHour <= flowAlarm;
+  if (isTempUse)
+  {
+    isTempWarning = temp >= tempWarning * 10 && temp < tempAlarm * 10;
+    isTempAlarm = temp >= tempAlarm * 10;
+  }
+  else
+  {
+    isTempWarning = false;
+    isTempAlarm = false;
+  }
+
+  if (isFlowUse)
+  {
+    isFlowWarning = litersPerHour > flowAlarm && litersPerHour <= flowWarning;
+    isFlowAlarm = litersPerHour <= flowAlarm;
+  }
+  else
+  {
+    isFlowWarning = false;
+    isFlowAlarm = false;
+  }
 
   if (isTempAlarm)
   {
@@ -202,14 +238,34 @@ void setup()
   Serial.begin(9600);
   Serial.println("Chiller start.");
 
-  // инициализируем либу для работы с датчиками температуры
-  sensors.begin();
-  sensors.getAddress(waterThermometerAddr, 0);
-  sensors.setResolution(waterThermometerAddr, TEMPERATURE_PRECISION);
+  if (!readSettings())
+  {
 
-  pinMode(PIN_WATER_FLOW, INPUT);
-  // прерывание на пине к которому подключен датчик воды, дёргает когда приходят данные
-  attachInterrupt(WATER_FLOW_INTERRUPT_NUMBER, waterFlowInterruptHandler, FALLING);
+    tempWarning = 20;
+    tempAlarm = 25;
+    flowWarning = 100;
+    flowAlarm = 90;
+    isTempUse = false;
+    isFlowUse = false;
+    isSoundEnabled = true;
+    writeSettings();
+  }
+
+  // инициализируем либу для работы с датчиками температуры
+  if (isTempUse)
+  {
+    sensors.begin();
+    // TODO: реализовать проверку на наличие датчика!
+    sensors.getAddress(waterThermometerAddr, 0);
+    sensors.setResolution(waterThermometerAddr, TEMPERATURE_PRECISION);
+  }
+
+  if (isFlowUse)
+  {
+    pinMode(PIN_WATER_FLOW, INPUT);
+    // прерывание на пине к которому подключен датчик воды, дёргает когда приходят данные
+    attachInterrupt(WATER_FLOW_INTERRUPT_NUMBER, waterFlowInterruptHandler, FALLING);
+  }
 
   // подсветка экрана
   pinMode(BACKLIGHT, OUTPUT);
@@ -242,16 +298,6 @@ void setup()
 
   buttonDown.setTickMode(MANUAL);
   buttonDown.setStepTimeout(200);
-
-  if (!readSettings())
-  {
-
-    tempWarning = 20;
-    tempAlarm = 25;
-    flowWarning = 100;
-    flowAlarm = 90;
-    writeSettings();
-  }
 
   // Пищим при запуске.
   tone(PIN_PIZO, 400);
@@ -291,10 +337,26 @@ void loop()
 
   if (mode == MODE_MAIN_SCREEN && isClick)
   {
-    mode = MODE_SET_TEMP_WARNING;
+    mode = MODE_SET_TEMP_USE;
     isClick = false;
     isRedraw = true;
     noTone(PIN_PIZO);
+  }
+
+  if (mode == MODE_SET_TEMP_USE && isClick)
+  {
+    mode = MODE_SET_TEMP_WARNING;
+    isClick = false;
+    isRedraw = true;
+    writeSettings();
+
+    if (isTempUse)
+    {
+      // TODO: реализовать инициализацию датчика!
+    } else {
+      // если датчик не используем, лимиты нет смысла настраивать
+      mode = MODE_SET_FLOW_USE;
+    }
   }
 
   if (mode == MODE_SET_TEMP_WARNING && isClick)
@@ -307,10 +369,23 @@ void loop()
 
   if (mode == MODE_SET_TEMP_ALARM && isClick)
   {
+    mode = MODE_SET_FLOW_USE;
+    isClick = false;
+    isRedraw = true;
+    writeSettings();
+  }
+
+  if (mode == MODE_SET_FLOW_USE && isClick)
+  {
     mode = MODE_SET_FLOW_WARNING;
     isClick = false;
     isRedraw = true;
     writeSettings();
+    
+    if (!isFlowUse) {
+      // если датчик не используем, лимиты нет смысла настраивать
+      mode = MODE_SET_SOUND_ENABLED;
+    }
   }
 
   if (mode == MODE_SET_FLOW_WARNING && isClick)
@@ -322,6 +397,14 @@ void loop()
   }
 
   if (mode == MODE_SET_FLOW_ALARM && isClick)
+  {
+    mode = MODE_SET_SOUND_ENABLED;
+    isClick = false;
+    isRedraw = true;
+    writeSettings();
+  }
+
+  if (mode == MODE_SET_SOUND_ENABLED && isClick)
   {
     mode = MODE_MAIN_SCREEN;
     isClick = false;
@@ -395,6 +478,13 @@ void loop()
 
     readJoystickMainScreen();
     break;
+  case MODE_SET_TEMP_USE:
+    readJoystickUseValue(&isTempUse);
+    if (isRedraw)
+    {
+      displaySetUseValue("Use T sensor?", isTempUse);
+    }
+    break;
   case MODE_SET_TEMP_WARNING:
     readJoystickValue(&tempWarning);
     if (isRedraw)
@@ -409,6 +499,13 @@ void loop()
       displaySetValue("Temp A-limit", tempAlarm);
     }
     break;
+  case MODE_SET_FLOW_USE:
+    readJoystickUseValue(&isFlowUse);
+    if (isRedraw)
+    {
+      displaySetUseValue("Use F sensor?", isFlowUse);
+    }
+    break;
   case MODE_SET_FLOW_WARNING:
     readJoystickValue(&flowWarning);
     if (isRedraw)
@@ -421,6 +518,13 @@ void loop()
     if (isRedraw)
     {
       displaySetValue("Flow A-limit", flowAlarm);
+    }
+    break;
+  case MODE_SET_SOUND_ENABLED:
+    readJoystickUseValue(&isSoundEnabled);
+    if (isRedraw)
+    {
+      displaySetUseValue("Enable sound?", isSoundEnabled);
     }
     break;
   }

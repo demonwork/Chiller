@@ -28,6 +28,13 @@ uint8_t tempAlarm;
 uint8_t flowWarning;
 // значение аварийно низкого потока
 uint8_t flowAlarm;
+// используем датчик температуры?
+bool isTempUse;
+// используем датчик потока?
+bool isFlowUse;
+// включить звук?
+bool isSoundEnabled;
+
 
 // Переменные потока датчика воды
 volatile uint16_t pulse_frequency;

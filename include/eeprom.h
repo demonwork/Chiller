@@ -7,6 +7,9 @@
 #define SETTINGS_ADDR_TEMP_ALARM 3
 #define SETTINGS_ADDR_FLOW_WARNING 4
 #define SETTINGS_ADDR_FLOW_ALARM 5
+#define SETTINGS_ADDR_TEMP_USE 6
+#define SETTINGS_ADDR_FLOW_USE 7
+#define SETTINGS_ADDR_SOUND_ENABLED 8
 
 bool readSettings();
 void writeSettings();
