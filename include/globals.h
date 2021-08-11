@@ -34,6 +34,8 @@ bool isTempUse;
 bool isFlowUse;
 // включить звук?
 bool isSoundEnabled;
+// время задержки работы при старте в секундах
+uint8_t startTimeout;
 
 
 // Переменные потока датчика воды

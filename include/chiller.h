@@ -51,5 +51,6 @@
 #define MODE_SET_TEMP_USE 5
 #define MODE_SET_FLOW_USE 6
 #define MODE_SET_SOUND_ENABLED 7
+#define MODE_SET_START_TIMEOUT 8 
 
 #endif

@@ -10,12 +10,13 @@ extern uint8_t flowAlarm;
 extern bool isTempUse;
 extern bool isFlowUse;
 extern bool isSoundEnabled;
+extern uint8_t startTimeout;
 
 bool readSettings()
 {
   uint16_t eepromCrc, calcCrc;
   uint8_t settings = 0;
-  uint8_t tmpBuff[7];
+  uint8_t tmpBuff[8];
 
   eepromCrc = EEPROM.read(SETTINGS_ADDR_CRC_H) << 8;
   eepromCrc |= 0x00FF & EEPROM.read(SETTINGS_ADDR_CRC_L);
@@ -41,6 +42,9 @@ bool readSettings()
   settings = EEPROM.read(SETTINGS_ADDR_SOUND_ENABLED);
   tmpBuff[6] = isSoundEnabled = settings;
 
+  settings = EEPROM.read(SETTINGS_ADDR_START_TIMEOUT);
+  tmpBuff[7] = startTimeout = settings;
+
   FastCRC16 CRC16;
   calcCrc = CRC16.ccitt(tmpBuff, sizeof(tmpBuff));
   if (eepromCrc != calcCrc)
@@ -56,7 +60,7 @@ bool readSettings()
 void writeSettings()
 {
   uint16_t calcCrc;
-  uint8_t tmpBuff[7];
+  uint8_t tmpBuff[8];
 
   tmpBuff[0] = tempWarning;
   tmpBuff[1] = tempAlarm;
@@ -65,6 +69,7 @@ void writeSettings()
   tmpBuff[4] = isTempUse;
   tmpBuff[5] = isFlowUse;
   tmpBuff[6] = isSoundEnabled;
+  tmpBuff[7] = startTimeout;
   EEPROM.update(SETTINGS_ADDR_TEMP_WARNING, tempWarning);
   EEPROM.update(SETTINGS_ADDR_TEMP_ALARM, tempAlarm);
   EEPROM.update(SETTINGS_ADDR_FLOW_WARNING, flowWarning);
@@ -72,6 +77,7 @@ void writeSettings()
   EEPROM.update(SETTINGS_ADDR_TEMP_USE, isTempUse);
   EEPROM.update(SETTINGS_ADDR_FLOW_USE, isFlowUse);
   EEPROM.update(SETTINGS_ADDR_SOUND_ENABLED, isSoundEnabled);
+  EEPROM.update(SETTINGS_ADDR_START_TIMEOUT, startTimeout);
 
   FastCRC16 CRC16;
   calcCrc = CRC16.ccitt(tmpBuff, sizeof(tmpBuff));

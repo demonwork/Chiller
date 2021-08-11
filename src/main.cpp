@@ -266,18 +266,16 @@ void setup()
     isTempUse = false;
     isFlowUse = false;
     isSoundEnabled = true;
+    startTimeout = 5;
     writeSettings();
   }
 
   // инициализируем либу для работы с датчиками температуры
   setupTempSensor();
 
-  if (isFlowUse)
-  {
-    pinMode(PIN_WATER_FLOW, INPUT);
-    // прерывание на пине к которому подключен датчик воды, дёргает когда приходят данные
-    attachInterrupt(WATER_FLOW_INTERRUPT_NUMBER, waterFlowInterruptHandler, FALLING);
-  }
+  pinMode(PIN_WATER_FLOW, INPUT);
+  // прерывание на пине к которому подключен датчик воды, дёргает когда приходят данные
+  attachInterrupt(WATER_FLOW_INTERRUPT_NUMBER, waterFlowInterruptHandler, FALLING);
 
   // подсветка экрана
   pinMode(PIN_BACKLIGHT, OUTPUT);
@@ -321,7 +319,7 @@ void setup()
   noTone(PIN_PIZO);
 
   // задержка перед стартом
-  startTimeOut(5);
+  startTimeOut(startTimeout);
 }
 
 void readAnalogButton()
@@ -421,6 +419,14 @@ void loop()
   }
 
   if (mode == MODE_SET_SOUND_ENABLED && isClick)
+  {
+    mode = MODE_SET_START_TIMEOUT;
+    isClick = false;
+    isRedraw = true;
+    writeSettings();
+  }
+
+  if (mode == MODE_SET_START_TIMEOUT && isClick)
   {
     mode = MODE_MAIN_SCREEN;
     isClick = false;
@@ -541,6 +547,13 @@ void loop()
     if (isRedraw)
     {
       displaySetUseValue("Enable sound?", isSoundEnabled);
+    }
+    break;
+  case MODE_SET_START_TIMEOUT:
+    readJoystickValue(&startTimeout);
+    if (isRedraw)
+    {
+      displaySetValue("Start timeout", startTimeout);
     }
     break;
   }
