@@ -47,7 +47,6 @@ void displayAlarm()
   }
   else
   {
-
     switch (event)
     {
     case eventTempWarning:
@@ -127,6 +126,11 @@ void readJoystickMainScreen()
     digitalWrite(PIN_BACKLIGHT, HIGH);
     isBackLightOn = false;
   }
+
+  // перезапускаем систему из состояния аварии
+  if (isChillerHalt && button.isClick()) {
+    resetSystem();
+  }
 }
 
 /**
@@ -139,6 +143,12 @@ void getMeasures()
   uint64_t currentTime = millis();
   static uint64_t prevTime = 0;
   float realTemp;
+
+  // если произошла авария, ни какие измерения не снимаем, чтоб их "зафиксировать" до сброса системы
+  if (isChillerHalt) {
+    return;
+  }
+
   measuredPeriod = currentTime - prevTime;
   if (measuredPeriod >= MEASURE_PERIOD_LENGTH)
   {
@@ -209,11 +219,13 @@ void setEvent()
   {
     event = eventTempAlarm;
     digitalWrite(PIN_EMERGENCY_STOP, HIGH);
+    isChillerHalt = true;
   }
   else if (isFlowAlarm)
   {
     event = eventFlowAlarm;
     digitalWrite(PIN_EMERGENCY_STOP, HIGH);
+    isChillerHalt = true;
   }
   else if (isTempWarning)
   {
@@ -251,6 +263,7 @@ bool setupTempSensor()
  */
 void setup()
 {
+  isChillerHalt = false;
   Serial.begin(9600);
   Serial.println("Chiller start.");
 

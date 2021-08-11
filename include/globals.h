@@ -37,6 +37,11 @@ bool isSoundEnabled;
 // время задержки работы при старте в секундах
 uint8_t startTimeout;
 
+// флаг аварийной остановки (чтобы можно было понять из за чего был остановлен станок)
+bool isChillerHalt;
+
+// declare reset fuction at address 0
+void (*resetSystem)(void) = 0;
 
 // Переменные потока датчика воды
 volatile uint16_t pulse_frequency;
