@@ -10,6 +10,7 @@
 /*
  * TODO:
  * - Удобный интерфейс для настройки
+ * - Управление помпой. Т.е. включение выключение при достижении определённой температуры.
  */
 
 /**
@@ -327,10 +328,10 @@ void readAnalogButton()
   int analogX = analogRead(PIN_VRX);
   int analogY = analogRead(PIN_VRY);
 
-  buttonUp.tick(analogY > 1000);
-  buttonDown.tick(analogY < 400);
-  buttonRight.tick(analogX > 1000);
+  buttonUp.tick(analogY < 400);
+  buttonDown.tick(analogY > 800);
   buttonLeft.tick(analogX < 400);
+  buttonRight.tick(analogX > 800);
 }
 
 /**
