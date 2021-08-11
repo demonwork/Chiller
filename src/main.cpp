@@ -329,9 +329,9 @@ void readAnalogButton()
   int analogY = analogRead(PIN_VRY);
 
   buttonUp.tick(analogY < 400);
-  buttonDown.tick(analogY > 800);
+  buttonDown.tick(analogY > 1000);
   buttonLeft.tick(analogX < 400);
-  buttonRight.tick(analogX > 800);
+  buttonRight.tick(analogX > 1000);
 }
 
 /**
