@@ -128,7 +128,8 @@ void readJoystickMainScreen()
   }
 
   // перезапускаем систему из состояния аварии
-  if (isChillerHalt && button.isClick()) {
+  if (isChillerHalt && button.isClick())
+  {
     resetSystem();
   }
 }
@@ -145,7 +146,8 @@ void getMeasures()
   float realTemp;
 
   // если произошла авария, ни какие измерения не снимаем, чтоб их "зафиксировать" до сброса системы
-  if (isChillerHalt) {
+  if (isChillerHalt)
+  {
     return;
   }
 
@@ -258,6 +260,18 @@ bool setupTempSensor()
   }
 }
 
+void setDefaultSettings()
+{
+  tempWarning = 20;
+  tempAlarm = 25;
+  flowWarning = 100;
+  flowAlarm = 90;
+  isTempUse = false;
+  isFlowUse = false;
+  isSoundEnabled = true;
+  startTimeout = 5;
+}
+
 /**
  * Инициализация приложения
  */
@@ -272,15 +286,7 @@ void setup()
 
   if (!readSettings())
   {
-
-    tempWarning = 20;
-    tempAlarm = 25;
-    flowWarning = 100;
-    flowAlarm = 90;
-    isTempUse = false;
-    isFlowUse = false;
-    isSoundEnabled = true;
-    startTimeout = 5;
+    setDefaultSettings();
     writeSettings();
   }
 
@@ -331,6 +337,17 @@ void setup()
   tone(PIN_PIZO, 1500);
   delay(300);
   noTone(PIN_PIZO);
+
+  if (digitalRead(PIN_BUTTON) == LOW)
+  {
+    // сбрасываем значения настроек по умолчанию
+    display.print("Reset...");
+    display.display();
+    delay(3000);
+    setDefaultSettings();
+    writeSettings();
+    resetSystem();
+  }
 
   // задержка перед стартом
   startTimeOut(startTimeout);
