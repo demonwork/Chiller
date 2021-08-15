@@ -9,6 +9,7 @@
 #include <Wire.h>
 #include <GyverButton.h>
 #include "chiller.h"
+#include "ChillerSettings.h"
 
 bool isBackLightOn;
 
@@ -20,22 +21,9 @@ Adafruit_PCD8544 display = Adafruit_PCD8544(LCD_CLK, LCD_DIN, LCD_DC, LCD_CE, LC
 
 // текущая температурв
 uint16_t temp;
-// значение опасно высокой температуры
-uint8_t tempWarning;
-// значение аварийно высокой температуры
-uint8_t tempAlarm;
-// значение опасно низкого потока
-uint8_t flowWarning;
-// значение аварийно низкого потока
-uint8_t flowAlarm;
-// используем датчик температуры?
-bool isTempUse;
-// используем датчик потока?
-bool isFlowUse;
-// включить звук?
-bool isSoundEnabled;
-// время задержки работы при старте в секундах
-uint8_t startTimeout;
+
+// настройки приложения
+ChillerSettings settings;
 
 // флаг аварийной остановки (чтобы можно было понять из за чего был остановлен станок)
 bool isChillerHalt;

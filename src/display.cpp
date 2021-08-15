@@ -3,13 +3,11 @@
 #include "chiller.h"
 #include "display.h"
 #include "images.h"
+#include "ChillerSettings.h"
 
 extern bool isRedraw;
 extern uint16_t temp;
-extern uint8_t tempWarning;
-extern uint8_t tempAlarm;
-extern uint8_t flowWarning;
-extern uint8_t flowAlarm;
+extern ChillerSettings settings;
 extern bool isBackLightOn;
 extern Adafruit_PCD8544 display;
 extern uint8_t litersPerHour, litersPerMinute;
@@ -47,9 +45,9 @@ void displayMainScreenTemp()
   display.setCursor(0, 30);
 
   display.print("W-limit: ");
-  display.println(tempWarning);
+  display.println(settings.getTempWarning());
   display.print("A-limit: ");
-  display.println(tempAlarm);
+  display.println(settings.getTempAlarm());
 
   display.display();
 
@@ -72,9 +70,9 @@ void displayMainScreenFlow()
   display.setCursor(0, 30);
 
   display.print("W-limit: ");
-  display.println(flowWarning);
+  display.println(settings.getFlowWarning());
   display.print("A-limit: ");
-  display.println(flowAlarm);
+  display.println(settings.getFlowAlarm());
 
   display.display();
 

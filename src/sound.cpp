@@ -2,15 +2,16 @@
 #include <Arduino.h>
 #include "sound.h"
 #include "chiller.h"
+#include "ChillerSettings.h"
 
-extern bool isSoundEnabled;
+extern ChillerSettings settings;
 
 /**
  * Звук предупреждения о опасной ситуации
  */
 void soundBeep()
 {
-  if (!isSoundEnabled) {
+  if (!settings.isSoundEnabled()) {
     noTone(PIN_PIZO);
     return;
   }
@@ -53,7 +54,7 @@ void soundBeep()
  */
 void soundSiren()
 {
-  if (!isSoundEnabled) {
+  if (!settings.isSoundEnabled()) {
     noTone(PIN_PIZO);
     return;
   }

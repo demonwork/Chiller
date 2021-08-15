@@ -1,6 +1,6 @@
 #include <stdint.h>
 #include "images.h"
-#include "eeprom.h"
+#include "ChillerSettings.h"
 #include "chiller.h"
 #include "sound.h"
 #include "globals.h"
@@ -68,47 +68,45 @@ void displayAlarm()
   }
 }
 
-void readJoystickValue(uint8_t *value)
-{
-  // Обработка событий джойстика
-  if (buttonRight.isClick())
-  {
-    // Если стик вправо то ++
-    (*value)++;
-    isRedraw = true;
-  }
-
-  if (buttonRight.isStep())
-  {
-    // Если стик вправо то ++
-    (*value)++;
-    isRedraw = true;
-  }
-
-  if (buttonLeft.isClick())
-  {
-    // Если стик влево то --
-    (*value)--;
-    isRedraw = true;
-  }
-
-  if (buttonLeft.isStep())
-  {
-    // Если стик влево то --
-    (*value)--;
-    isRedraw = true;
-  }
+bool isClickRight() {
+  return buttonRight.isClick() || buttonRight.isStep();
 }
 
-void readJoystickUseValue(bool *value)
+bool isClickLeft() {
+  return buttonLeft.isClick() || buttonLeft.isStep();
+}
+
+uint8_t readJoystickValue(uint8_t value)
 {
   // Обработка событий джойстика
-  if (buttonRight.isClick() || buttonLeft.isClick())
+  if (isClickRight())
   {
-    // в любую сторону меняем знаяение на противоположное
-    (*value) = !(*value);
+    // Если стик вправо то ++
+    value++;
     isRedraw = true;
   }
+
+  if (isClickLeft())
+  {
+    // Если стик влево то --
+    value--;
+    isRedraw = true;
+  }
+
+  return value;
+}
+
+bool readJoystickUseValue(bool value)
+{
+  // Обработка событий джойстика
+  if (isClickRight() || isClickLeft())
+  {
+    // в любую сторону меняем знаяение на противоположное
+    return !value;
+    isRedraw = true;
+  }
+
+  return value;
 }
 
 void readJoystickMainScreen()
@@ -195,10 +193,10 @@ void getMeasures()
 
 void setEvent()
 {
-  if (isTempUse && sensors.getDS18Count() > 0)
+  if (settings.isTempUse() && sensors.getDS18Count() > 0)
   {
-    isTempWarning = temp >= tempWarning * 10 && temp < tempAlarm * 10;
-    isTempAlarm = temp >= tempAlarm * 10;
+    isTempWarning = temp >= settings.getTempWarning() * 10 && temp < settings.getTempAlarm() * 10;
+    isTempAlarm = temp >= settings.getTempAlarm() * 10;
   }
   else
   {
@@ -206,10 +204,10 @@ void setEvent()
     isTempAlarm = false;
   }
 
-  if (isFlowUse)
+  if (settings.isFlowUse())
   {
-    isFlowWarning = litersPerHour > flowAlarm && litersPerHour <= flowWarning;
-    isFlowAlarm = litersPerHour <= flowAlarm;
+    isFlowWarning = litersPerHour > settings.getFlowAlarm() && litersPerHour <= settings.getFlowWarning();
+    isFlowAlarm = litersPerHour <= settings.getFlowAlarm();
   }
   else
   {
@@ -260,18 +258,6 @@ bool setupTempSensor()
   }
 }
 
-void setDefaultSettings()
-{
-  tempWarning = 20;
-  tempAlarm = 25;
-  flowWarning = 100;
-  flowAlarm = 90;
-  isTempUse = false;
-  isFlowUse = false;
-  isSoundEnabled = true;
-  startTimeout = 5;
-}
-
 /**
  * Инициализация приложения
  */
@@ -284,10 +270,11 @@ void setup()
   digitalWrite(PIN_EMERGENCY_STOP, LOW);
   pinMode(PIN_EMERGENCY_STOP, OUTPUT);
 
-  if (!readSettings())
+  settings.read();
+  if (!settings.isCrcValid())
   {
-    setDefaultSettings();
-    writeSettings();
+    settings.setDefaults();
+    settings.write();
   }
 
   // инициализируем либу для работы с датчиками температуры
@@ -344,13 +331,13 @@ void setup()
     display.print("Reset...");
     display.display();
     delay(3000);
-    setDefaultSettings();
-    writeSettings();
+    settings.setDefaults();
+    settings.write();
     resetSystem();
   }
 
   // задержка перед стартом
-  startTimeOut(startTimeout);
+  startTimeOut(settings.getStartTimeout());
 }
 
 void readAnalogButton()
@@ -389,9 +376,9 @@ void loop()
     mode = MODE_SET_TEMP_WARNING;
     isClick = false;
     isRedraw = true;
-    writeSettings();
+    settings.write();
 
-    if (isTempUse)
+    if (settings.isTempUse())
     {
       // настройка сохранена, инициализируем датчик, если не удалось, в текущем сеансе "отключаем" его
       setupTempSensor();
@@ -408,7 +395,7 @@ void loop()
     mode = MODE_SET_TEMP_ALARM;
     isClick = false;
     isRedraw = true;
-    writeSettings();
+    settings.write();
   }
 
   if (mode == MODE_SET_TEMP_ALARM && isClick)
@@ -416,7 +403,7 @@ void loop()
     mode = MODE_SET_FLOW_USE;
     isClick = false;
     isRedraw = true;
-    writeSettings();
+    settings.write();
   }
 
   if (mode == MODE_SET_FLOW_USE && isClick)
@@ -424,9 +411,9 @@ void loop()
     mode = MODE_SET_FLOW_WARNING;
     isClick = false;
     isRedraw = true;
-    writeSettings();
+    settings.write();
 
-    if (!isFlowUse)
+    if (!settings.isFlowUse())
     {
       // если датчик не используем, лимиты нет смысла настраивать
       mode = MODE_SET_SOUND_ENABLED;
@@ -438,7 +425,7 @@ void loop()
     mode = MODE_SET_FLOW_ALARM;
     isClick = false;
     isRedraw = true;
-    writeSettings();
+    settings.write();
   }
 
   if (mode == MODE_SET_FLOW_ALARM && isClick)
@@ -446,7 +433,7 @@ void loop()
     mode = MODE_SET_SOUND_ENABLED;
     isClick = false;
     isRedraw = true;
-    writeSettings();
+    settings.write();
   }
 
   if (mode == MODE_SET_SOUND_ENABLED && isClick)
@@ -454,7 +441,7 @@ void loop()
     mode = MODE_SET_START_TIMEOUT;
     isClick = false;
     isRedraw = true;
-    writeSettings();
+    settings.write();
   }
 
   if (mode == MODE_SET_START_TIMEOUT && isClick)
@@ -462,7 +449,10 @@ void loop()
     mode = MODE_MAIN_SCREEN;
     isClick = false;
     isRedraw = true;
-    writeSettings();
+    settings.write();
+    if (isChillerHalt) {
+      resetSystem();
+    }
   }
 
   // опрашиваем датчики
@@ -532,59 +522,59 @@ void loop()
     readJoystickMainScreen();
     break;
   case MODE_SET_TEMP_USE:
-    readJoystickUseValue(&isTempUse);
+    settings.setTempUse(readJoystickUseValue(settings.isTempUse()));
     if (isRedraw)
     {
-      displaySetUseValue("Use T sensor?", isTempUse);
+      displaySetUseValue("Use T sensor?", settings.isTempUse());
     }
     break;
   case MODE_SET_TEMP_WARNING:
-    readJoystickValue(&tempWarning);
+    settings.setTempWarning(readJoystickValue(settings.getTempWarning()));
     if (isRedraw)
     {
-      displaySetValue("Temp W-limit", tempWarning);
+      displaySetValue("Temp W-limit", settings.getTempWarning());
     }
     break;
   case MODE_SET_TEMP_ALARM:
-    readJoystickValue(&tempAlarm);
+    settings.setTempAlarm(readJoystickValue(settings.getTempAlarm()));
     if (isRedraw)
     {
-      displaySetValue("Temp A-limit", tempAlarm);
+      displaySetValue("Temp A-limit", settings.getTempAlarm());
     }
     break;
   case MODE_SET_FLOW_USE:
-    readJoystickUseValue(&isFlowUse);
+    settings.setFlowUse(readJoystickUseValue(settings.isFlowUse()));
     if (isRedraw)
     {
-      displaySetUseValue("Use F sensor?", isFlowUse);
+      displaySetUseValue("Use F sensor?", settings.isFlowUse());
     }
     break;
   case MODE_SET_FLOW_WARNING:
-    readJoystickValue(&flowWarning);
+    settings.setFlowWarning(readJoystickValue(settings.getFlowWarning()));
     if (isRedraw)
     {
-      displaySetValue("Flow W-limit", flowWarning);
+      displaySetValue("Flow W-limit", settings.getFlowWarning());
     }
     break;
   case MODE_SET_FLOW_ALARM:
-    readJoystickValue(&flowAlarm);
+    settings.setFlowAlarm(readJoystickValue(settings.getFlowAlarm()));
     if (isRedraw)
     {
-      displaySetValue("Flow A-limit", flowAlarm);
+      displaySetValue("Flow A-limit", settings.getFlowAlarm());
     }
     break;
   case MODE_SET_SOUND_ENABLED:
-    readJoystickUseValue(&isSoundEnabled);
+    settings.setSoundEnabled(readJoystickUseValue(settings.isSoundEnabled()));
     if (isRedraw)
     {
-      displaySetUseValue("Enable sound?", isSoundEnabled);
+      displaySetUseValue("Enable sound?", settings.isSoundEnabled());
     }
     break;
   case MODE_SET_START_TIMEOUT:
-    readJoystickValue(&startTimeout);
+    settings.setStartTimeout(readJoystickValue(settings.getStartTimeout()));
     if (isRedraw)
     {
-      displaySetValue("Start timeout", startTimeout);
+      displaySetValue("Start timeout", settings.getStartTimeout());
     }
     break;
   }
