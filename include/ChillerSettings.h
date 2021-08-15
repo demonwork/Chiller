@@ -36,6 +36,8 @@ typedef struct ChillerSettingsStruct
 class ChillerSettings
 {
 public:
+    ChillerSettings();
+
     bool isCrcValid();
     uint8_t getTempWarning();
     uint8_t getTempAlarm();

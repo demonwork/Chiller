@@ -2,6 +2,10 @@
 #include <EEPROM.h>
 #include <FastCRC.h>
 
+ChillerSettings::ChillerSettings() {
+    setDefaults();
+}
+
 bool ChillerSettings::isCrcValid()
 {
     return _isCrcValid;
@@ -125,6 +129,7 @@ void ChillerSettings::write()
     EEPROM.update(SETTINGS_ADDR_START_TIMEOUT, settings.startTimeout);
     EEPROM.update(SETTINGS_ADDR_CRC_H, (uint8_t)(calcCrc >> 8));
     EEPROM.update(SETTINGS_ADDR_CRC_L, (uint8_t)calcCrc);
+    _isCrcValid = true;
 }
 
 void ChillerSettings::setDefaults()
@@ -137,4 +142,5 @@ void ChillerSettings::setDefaults()
     settings.isFlowUse = false;
     settings.isSoundEnabled = true;
     settings.startTimeout = 5;
+    _isCrcValid = true;
 }

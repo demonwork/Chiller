@@ -376,7 +376,6 @@ void loop()
     mode = MODE_SET_TEMP_WARNING;
     isClick = false;
     isRedraw = true;
-    settings.write();
 
     if (settings.isTempUse())
     {
@@ -395,7 +394,6 @@ void loop()
     mode = MODE_SET_TEMP_ALARM;
     isClick = false;
     isRedraw = true;
-    settings.write();
   }
 
   if (mode == MODE_SET_TEMP_ALARM && isClick)
@@ -403,7 +401,6 @@ void loop()
     mode = MODE_SET_FLOW_USE;
     isClick = false;
     isRedraw = true;
-    settings.write();
   }
 
   if (mode == MODE_SET_FLOW_USE && isClick)
@@ -411,7 +408,6 @@ void loop()
     mode = MODE_SET_FLOW_WARNING;
     isClick = false;
     isRedraw = true;
-    settings.write();
 
     if (!settings.isFlowUse())
     {
@@ -425,7 +421,6 @@ void loop()
     mode = MODE_SET_FLOW_ALARM;
     isClick = false;
     isRedraw = true;
-    settings.write();
   }
 
   if (mode == MODE_SET_FLOW_ALARM && isClick)
@@ -433,7 +428,6 @@ void loop()
     mode = MODE_SET_SOUND_ENABLED;
     isClick = false;
     isRedraw = true;
-    settings.write();
   }
 
   if (mode == MODE_SET_SOUND_ENABLED && isClick)
@@ -441,7 +435,6 @@ void loop()
     mode = MODE_SET_START_TIMEOUT;
     isClick = false;
     isRedraw = true;
-    settings.write();
   }
 
   if (mode == MODE_SET_START_TIMEOUT && isClick)
@@ -449,6 +442,7 @@ void loop()
     mode = MODE_MAIN_SCREEN;
     isClick = false;
     isRedraw = true;
+    // сохраняем все настройки один раз после изменения последней настройки
     settings.write();
     if (isChillerHalt) {
       resetSystem();
