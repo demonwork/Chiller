@@ -2,21 +2,25 @@
 #define ChillerSettings_h
 
 #include <stdint.h>
-
-// #pragma pack(push,1)
-// typedef struct Settings
-// {
-//     uint16_t crc;
-//     uint8_t tempWarning;
-//     uint8_t tempAlarm;
-//     uint8_t flowWarning;
-//     uint8_t flowAlarm;
-//     bool tempUse;
-//     bool flowUse;
-//     bool soundUse;
-//     uint8_t startTimeOut;
-// };
-// #pragma pack(pop)
+typedef struct ChillerSettingsStruct
+{
+    // значение опасно высокой температуры
+    uint8_t tempWarning;
+    // значение аварийно высокой температуры
+    uint8_t tempAlarm;
+    // значение опасно низкого потока
+    uint8_t flowWarning;
+    // значение аварийно низкого потока
+    uint8_t flowAlarm;
+    // используем датчик температуры?
+    bool isTempUse;
+    // используем датчик потока?
+    bool isFlowUse;
+    // включить звук?
+    bool isSoundEnabled;
+    // время задержки работы при старте в секундах
+    uint8_t startTimeout;
+} * pChillerSettingsStruct;
 
 #define SETTINGS_ADDR_CRC_H 0
 #define SETTINGS_ADDR_CRC_L 1
@@ -56,24 +60,8 @@ public:
     void setDefaults();
 
 private:
-    // контрольная сумма
     bool _isCrcValid;
-    // значение опасно высокой температуры
-    uint8_t tempWarning;
-    // значение аварийно высокой температуры
-    uint8_t tempAlarm;
-    // значение опасно низкого потока
-    uint8_t flowWarning;
-    // значение аварийно низкого потока
-    uint8_t flowAlarm;
-    // используем датчик температуры?
-    bool tempUse;
-    // используем датчик потока?
-    bool flowUse;
-    // включить звук?
-    bool soundEnabled;
-    // время задержки работы при старте в секундах
-    uint8_t startTimeout;
+    ChillerSettingsStruct settings;
 };
 
 #endif

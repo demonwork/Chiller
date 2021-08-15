@@ -9,141 +9,132 @@ bool ChillerSettings::isCrcValid()
 
 uint8_t ChillerSettings::getTempWarning()
 {
-    return tempWarning;
+    return settings.tempWarning;
 }
 
 uint8_t ChillerSettings::getTempAlarm()
 {
-    return tempAlarm;
+    return settings.tempAlarm;
 }
 
 uint8_t ChillerSettings::getFlowWarning()
 {
-    return flowWarning;
+    return settings.flowWarning;
 }
 
 uint8_t ChillerSettings::getFlowAlarm()
 {
-    return flowAlarm;
+    return settings.flowAlarm;
 }
 
 bool ChillerSettings::isTempUse()
 {
-    return tempUse;
+    return settings.isTempUse;
 }
 
 bool ChillerSettings::isFlowUse()
 {
-    return flowUse;
+    return settings.isFlowUse;
 }
 
 bool ChillerSettings::isSoundEnabled()
 {
-    return soundEnabled;
+    return settings.isSoundEnabled;
 }
 
 uint8_t ChillerSettings::getStartTimeout()
 {
-    return startTimeout;
+    return settings.startTimeout;
 }
 
 void ChillerSettings::setTempWarning(uint8_t value)
 {
-    tempWarning = value;
+    settings.tempWarning = value;
 }
 
 void ChillerSettings::setTempAlarm(uint8_t value)
 {
-    tempAlarm = value;
+    settings.tempAlarm = value;
 }
 
 void ChillerSettings::setFlowWarning(uint8_t value)
 {
-    flowWarning = value;
+    settings.flowWarning = value;
 }
 
 void ChillerSettings::setFlowAlarm(uint8_t value)
 {
-    flowAlarm = value;
+    settings.flowAlarm = value;
 }
 
 void ChillerSettings::setTempUse(bool value)
 {
-    tempUse = value;
+    settings.isTempUse = value;
 }
 
 void ChillerSettings::setFlowUse(bool value)
 {
-    flowUse = value;
+    settings.isFlowUse = value;
 }
 
 void ChillerSettings::setSoundEnabled(bool value)
 {
-    soundEnabled = value;
+    settings.isSoundEnabled = value;
 }
 
 void ChillerSettings::setStartTimeout(uint8_t value)
 {
-    startTimeout = value;
+    settings.startTimeout = value;
 }
 
 void ChillerSettings::read()
 {
     uint16_t eepromCrc, calcCrc;
-    uint8_t tmpBuff[8];
+    FastCRC16 CRC16;
 
     eepromCrc = EEPROM.read(SETTINGS_ADDR_CRC_H) << 8;
     eepromCrc |= 0x00FF & EEPROM.read(SETTINGS_ADDR_CRC_L);
 
-    tmpBuff[0] = tempWarning = EEPROM.read(SETTINGS_ADDR_TEMP_WARNING);
-    tmpBuff[1] = tempAlarm = EEPROM.read(SETTINGS_ADDR_TEMP_ALARM);
-    tmpBuff[2] = flowWarning = EEPROM.read(SETTINGS_ADDR_FLOW_WARNING);
-    tmpBuff[3] = flowAlarm = EEPROM.read(SETTINGS_ADDR_FLOW_ALARM);
-    tmpBuff[4] = tempUse = EEPROM.read(SETTINGS_ADDR_TEMP_USE);
-    tmpBuff[5] = flowUse = EEPROM.read(SETTINGS_ADDR_FLOW_USE);
-    tmpBuff[6] = soundEnabled = EEPROM.read(SETTINGS_ADDR_SOUND_ENABLED);
-    tmpBuff[7] = startTimeout = EEPROM.read(SETTINGS_ADDR_START_TIMEOUT);
+    settings.tempWarning = EEPROM.read(SETTINGS_ADDR_TEMP_WARNING);
+    settings.tempAlarm = EEPROM.read(SETTINGS_ADDR_TEMP_ALARM);
+    settings.flowWarning = EEPROM.read(SETTINGS_ADDR_FLOW_WARNING);
+    settings.flowAlarm = EEPROM.read(SETTINGS_ADDR_FLOW_ALARM);
+    settings.isTempUse = EEPROM.read(SETTINGS_ADDR_TEMP_USE);
+    settings.isFlowUse = EEPROM.read(SETTINGS_ADDR_FLOW_USE);
+    settings.isSoundEnabled = EEPROM.read(SETTINGS_ADDR_SOUND_ENABLED);
+    settings.startTimeout = EEPROM.read(SETTINGS_ADDR_START_TIMEOUT);
 
-    FastCRC16 CRC16;
-    calcCrc = CRC16.ccitt(tmpBuff, sizeof(tmpBuff));
+    calcCrc = CRC16.ccitt((uint8_t *)&settings, sizeof(settings));
     _isCrcValid = eepromCrc == calcCrc;
 }
 
 void ChillerSettings::write()
 {
-  uint16_t calcCrc;
-  uint8_t tmpBuff[8];
-  FastCRC16 CRC16;
+    uint16_t calcCrc;
+    FastCRC16 CRC16;
 
-  tmpBuff[0] = tempWarning;
-  tmpBuff[1] = tempAlarm;
-  tmpBuff[2] = flowWarning;
-  tmpBuff[3] = flowAlarm;
-  tmpBuff[4] = tempUse;
-  tmpBuff[5] = flowUse;
-  tmpBuff[6] = soundEnabled;
-  tmpBuff[7] = startTimeout;
-  calcCrc = CRC16.ccitt(tmpBuff, sizeof(tmpBuff));
+    calcCrc = CRC16.ccitt((uint8_t *)&settings, sizeof(settings));
 
-  EEPROM.update(SETTINGS_ADDR_TEMP_WARNING, tempWarning);
-  EEPROM.update(SETTINGS_ADDR_TEMP_ALARM, tempAlarm);
-  EEPROM.update(SETTINGS_ADDR_FLOW_WARNING, flowWarning);
-  EEPROM.update(SETTINGS_ADDR_FLOW_ALARM, flowAlarm);
-  EEPROM.update(SETTINGS_ADDR_TEMP_USE, tempUse);
-  EEPROM.update(SETTINGS_ADDR_FLOW_USE, flowUse);
-  EEPROM.update(SETTINGS_ADDR_SOUND_ENABLED, soundEnabled);
-  EEPROM.update(SETTINGS_ADDR_START_TIMEOUT, startTimeout);
-  EEPROM.update(SETTINGS_ADDR_CRC_H, (uint8_t)(calcCrc >> 8));
-  EEPROM.update(SETTINGS_ADDR_CRC_L, (uint8_t)calcCrc);
+    EEPROM.update(SETTINGS_ADDR_TEMP_WARNING, settings.tempWarning);
+    EEPROM.update(SETTINGS_ADDR_TEMP_ALARM, settings.tempAlarm);
+    EEPROM.update(SETTINGS_ADDR_FLOW_WARNING, settings.flowWarning);
+    EEPROM.update(SETTINGS_ADDR_FLOW_ALARM, settings.flowAlarm);
+    EEPROM.update(SETTINGS_ADDR_TEMP_USE, settings.isTempUse);
+    EEPROM.update(SETTINGS_ADDR_FLOW_USE, settings.isFlowUse);
+    EEPROM.update(SETTINGS_ADDR_SOUND_ENABLED, settings.isSoundEnabled);
+    EEPROM.update(SETTINGS_ADDR_START_TIMEOUT, settings.startTimeout);
+    EEPROM.update(SETTINGS_ADDR_CRC_H, (uint8_t)(calcCrc >> 8));
+    EEPROM.update(SETTINGS_ADDR_CRC_L, (uint8_t)calcCrc);
 }
 
-void ChillerSettings::setDefaults() {
-  tempWarning = 20;
-  tempAlarm = 25;
-  flowWarning = 100;
-  flowAlarm = 90;
-  tempUse = false;
-  flowUse = false;
-  soundEnabled = true;
-  startTimeout = 5;
+void ChillerSettings::setDefaults()
+{
+    settings.tempWarning = 20;
+    settings.tempAlarm = 25;
+    settings.flowWarning = 100;
+    settings.flowAlarm = 90;
+    settings.isTempUse = false;
+    settings.isFlowUse = false;
+    settings.isSoundEnabled = true;
+    settings.startTimeout = 5;
 }
